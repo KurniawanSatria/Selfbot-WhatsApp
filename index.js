@@ -1,6 +1,6 @@
 const {
   useMultiFileAuthState,
-  makeInMemoryStore,
+  MessageStore,
   jidNormalizedUser,
   fetchLatestBaileysVersion,
   Browsers
@@ -25,11 +25,11 @@ const log = {
 };
 global.log = log;
 process.on("uncaughtException", (err) => {
-    log.error(`Uncaught Exception: ${util.format(err)}`);
+  log.error(`Uncaught Exception: ${util.format(err)}`);
 });
 
 process.on("unhandledRejection", (err) => {
-    log.error(`Unhandled Rejection: ${util.format(err)}`);
+  log.error(`Unhandled Rejection: ${util.format(err)}`);
 });
 // ─── Command Loader ───────────────────────────────────────────────────────────
 const cmdDir = path.join(__dirname, "commands");
@@ -89,7 +89,7 @@ async function loadEvents(sock, deps = {}) {
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 const start = async () => {
-  const store = makeInMemoryStore({ logger: pino().child({ level: "fatal" }) });
+  const store = new MessageStore({ maxMessagesPerChat: 100, ttl: 24 * 60 * 60 * 1000 });
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
   const { version } = await fetchLatestBaileysVersion();
   const logger = pino({ level: "silent" })
@@ -136,7 +136,7 @@ const start = async () => {
     },
   }
   const sock = await createSocket(connectionOptions);
-  store?.bind(sock.ev);
+  sock.store = store
   await loadEvents(sock, { saveCreds, restartFn: start });
   return sock;
 }

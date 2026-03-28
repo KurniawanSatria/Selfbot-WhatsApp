@@ -1,9 +1,12 @@
 const { PREFIX, CHANNEL } = require('../config');
+const OpenAI = require("openai");
+const { createMessageStoreHandler } = require("@innovatorssoft/baileys");
+const crypto = require("crypto");
 const { serialize } = require('../lib/serialize');
 const util = require('node:util');
 const { exec } = require('node:child_process');
 const https = require('https');
-
+const { getRandom, getBuffer, convertToPtt, convertToMp3 } = require("../lib/helper");
 // ─── Anti-Spam ────────────────────────────────────────────────────────────────
 const DEFAULT_COOLDOWN = 5000;
 const cooldowns = new Map();
@@ -27,19 +30,39 @@ setInterval(() => {
 
 module.exports = {
     register(sock) {
-        sock.ev.on("messages.upsert", async ({ messages, type }) => {
+        sock.ev.on("messages.upsert", createMessageStoreHandler(sock.store));
+        sock.ev.on("messages.upsert", async ({ messages }) => {
             for (const raw of messages) {
                 if (!raw.message) continue;
                 if (raw.key.id.startsWith('INO')) continue;
-
                 // ─── Serialize ────────────────────────────────────────────
-                const m = serialize(sock, raw);
+                const m = await serialize(sock, raw);
 
                 try {
                     if (!m.fromMe) continue;
+                    const now = Date.now();
+                    const msgTime = Number(m.messageTimestamp) * 1000;
+
+                    if (msgTime < global.startTime) {
+                        const diff = now - msgTime;
+
+                        const sec = Math.floor(diff / 1000) % 60;
+                        const min = Math.floor(diff / (1000 * 60)) % 60;
+                        const hr = Math.floor(diff / (1000 * 60 * 60)) % 24;
+                        const day = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+                        const parts = [];
+                        if (day) parts.push(`${day}d`);
+                        if (hr) parts.push(`${hr}h`);
+                        if (min) parts.push(`${min}m`);
+                        if (sec) parts.push(`${sec}s`);
+
+                        const timeStr = parts.length ? parts.join(" ") : "<1s";
+                        global?.log?.info(`skipping message ${timeStr} ago`);
+                        continue;
+                    }
 
                     const { chat, sender, body } = m;
-
                     // ── Eval ──────────────────────────────────────────────
                     if (body.startsWith(">")) {
                         const evalAsync = () => {

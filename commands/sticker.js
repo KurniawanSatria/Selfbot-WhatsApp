@@ -1,5 +1,3 @@
-const { getContentType } = require("@innovatorssoft/baileys");
-
 module.exports = {
   name: "sticker",
   aliases: ["s", "stiker", "stc"],

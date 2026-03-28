@@ -21,6 +21,7 @@ module.exports = {
             }
 
             if (connection === "open") {
+                global.startTime = Date.now();
                 global.log?.success("Connected to WhatsApp!");
             }
 
