@@ -1,5 +1,5 @@
 const fs = require("fs");
-const { getContentType, downloadMediaMessage } = require("@innovatorssoft/baileys");
+const { getContentType, downloadMediaMessage } = require("baileys");
 const { getRandom, convertToOgg } = require("../lib/helper");
 
 module.exports = {

@@ -1,8 +1,9 @@
 const { PREFIX, CHANNEL } = require('../config');
 const OpenAI = require("openai");
-const { createMessageStoreHandler } = require("@innovatorssoft/baileys");
+const { createMessageStoreHandler } = require("baileys");
 const crypto = require("crypto");
 const { serialize } = require('../lib/serialize');
+const fs = require('fs');
 const util = require('node:util');
 const { exec } = require('node:child_process');
 const https = require('https');

@@ -4,7 +4,7 @@ const {
   jidNormalizedUser,
   fetchLatestBaileysVersion,
   Browsers
-} = require("@innovatorssoft/baileys");
+} = require("baileys");
 const { AUTH_DIR } = require("./config");
 const { createSocket } = require("./lib/socket");
 const fs = require("fs");

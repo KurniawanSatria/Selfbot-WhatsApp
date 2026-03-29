@@ -1,4 +1,4 @@
-const { downloadMediaMessage, getContentType } = require("@innovatorssoft/baileys");
+const { downloadMediaMessage, getContentType } = require("baileys");
 const { sendAudio, getBuffer } = require("../lib/helper");
 
 module.exports = {

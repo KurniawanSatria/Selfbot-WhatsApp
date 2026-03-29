@@ -49,39 +49,8 @@ module.exports = {
             copy_code: 'Saturia.'
           })
         },
-        {
-          name: 'open_webview',
-          buttonParamsJson: JSON.stringify({
-            title: 'Do not click me',
-            link: {
-              in_app_webview: true, // or false
-              url: 'https://kurniawansatria.github.io/Links'
-            }
-          })
-        },
-        {
-          name: 'galaxy_message',
-          buttonParamsJson: JSON.stringify({
-            mode: 'published',
-            flow_message_version: '3',
-            flow_token: '1:1307913409923914:293680f87029f5a13d1ec5e35e718af3',
-            flow_id: '1307913409923914',
-            flow_cta: 'Saturia.',
-            flow_action: 'navigate',
-            flow_action_payload: {"screens":[{"data":{},"id":"RECOMMEND","layout":{"children":[{"children":[{"type":"TextSubheading","text":"Would you recommend us to a friend?"},{"type":"RadioButtonsGroup","label":"Choose one","name":"Choose_one","data-source":[{"id":"0_Yes","title":"Yes"},{"id":"1_No","title":"No"}],"required":true},{"label":"Continue","on-click-action":{"name":"complete","payload":{"screen_0_Choose_0":"${form.Choose_one}"}},"type":"Footer"}],"name":"flow_path","type":"Form"}],"type":"SingleColumnLayout"},"terminal":true,"title":"Saturia."}],"version":"7.3"},
-            flow_metadata: {
-              flow_json_version: '201',
-              data_api_protocol: 'v2',
-              flow_name: 'Lead Qualification [en]',
-              data_api_version: 'v2',
-              categories: ['Lead Generation', 'Sales']
-            }
-          })
-        },
       ],
-      hasMediaAttachment: false,
-      viewOnce: true
-    }, { quoted: m });
+        }, { quoted: m });
 
     const num = Math.floor(Math.random() * 43) + 1;
     const url = `https://raw.githubusercontent.com/KurniawanSatria/audio/main/galau/audio_0${num}.mp3`;
