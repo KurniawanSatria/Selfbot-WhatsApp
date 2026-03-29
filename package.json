@@ -19,6 +19,8 @@
     "node-webpmux": "^3.2.1",
     "openai": "^6.3.0",
     "pino": "^8.21.0",
+  },
+  "optionalDependencies": {
     "sharp": "^0.34.5"
   },
   "engines": {
