@@ -1,4 +1,4 @@
-const { DisconnectReason } = require("@innovatorssoft/baileys");
+const { DisconnectReason } = require("baileys");
 const { Boom } = require("@hapi/boom");
 const { NUMBER } = require("../config");
 const { sleep } = require("../lib/helper");
