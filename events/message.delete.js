@@ -11,6 +11,7 @@ module.exports = {
         try {
           if (info.key.remoteJid.endsWith("@newsletter") || info.key.remoteJid.endsWith("@g.us") || info.key.remoteJid.endsWith("@broadcast")) continue //ignore channels or groups message
           await sock.copyNForward(info.key.remoteJid, info.originalMessage, true);
+          await sock.sendMessage(info.key.remoteJid, {text:'kok dihapus?'})
           global.log?.info(`Anti-delete: forwarded message in ${info.key.remoteJid}`);
         } catch (err) {
           global.log?.error(`Anti-delete error: ${util.format(err)}`);
