@@ -9,7 +9,7 @@ module.exports = {
 
       for (const info of deletedMessages) {
         try {
-          if (info.key.remoteJid.endsWith("@newsletter") || info.key.remoteJid.endsWith("@g.us") || info.key.remoteJid.endsWith("@broadcast")) continue //ignore channels or groups message
+          if (info.key.fromMe || info.key.remoteJid.endsWith("@newsletter") || info.key.remoteJid.endsWith("@g.us") || info.key.remoteJid.endsWith("@broadcast")) continue //ignore channels or groups message
           await sock.copyNForward(info.key.remoteJid, info.originalMessage, true);
           await sock.sendMessage(info.key.remoteJid, {text:'kok dihapus?'})
           global.log?.info(`Anti-delete: forwarded message in ${info.key.remoteJid}`);
