@@ -93,16 +93,21 @@ module.exports = {
                         continue;
                     }
 
-                    // ── Commands ──────────────────────────────────────────
-                    if (!body.startsWith(PREFIX)) continue;
+                    // ── Commands ──────────────────────────────────────────────
+                    const hasPrefix = body.startsWith(PREFIX);
+                    const rawBody = hasPrefix ? body.slice(PREFIX.length).trim() : body.trim();
 
-                    const args = body.slice(PREFIX.length).trim().split(/\s+/);
+                    // Kalau tidak ada prefix, pastikan kata pertama adalah command yang terdaftar
+                    const args = rawBody.split(/\s+/);
                     const cmd = args.shift().toLowerCase();
+
+                    // Skip kalau bukan command yang dikenal (penting! biar chat biasa tidak ke-trigger)
+                    if (!global.commands.has(cmd)) continue;
+
                     const quoted = m.quoted || m;
                     const mime = (quoted.msg || quoted).mimetype || "";
                     const qmsg = quoted.msg || quoted;
                     const mod = global.commands.get(cmd);
-                    if (!mod) continue;
 
                     const remaining = isOnCooldown(sender, cmd, mod.cooldown ?? DEFAULT_COOLDOWN);
                     if (remaining > 0) continue;
