@@ -1,0 +1,8 @@
+{
+  "allowedNumbers": [],
+  "allowedChats": [],
+  "settings": {
+    "autoAllowGroups": false,
+    "autoAllowContacts": false
+  }
+}

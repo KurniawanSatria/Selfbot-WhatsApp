@@ -1,0 +1,13 @@
+session
+tmp
+.vscode
+config.js
+contacts.json
+package-lock.json
+.idea
+*.log
+*.tmp
+*.bak
+*.swp
+.DS_Store
+node_modules
