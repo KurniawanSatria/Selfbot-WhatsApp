@@ -25,7 +25,6 @@ const log = {
   reload: (...a) => console.log(time(), chalk.blue("↻"), ...a),
 };
 global.log = log;
-global.db = db
 process.on("uncaughtException", (err) => {
   log.error(`Uncaught Exception: ${util.format(err)}`);
 });
@@ -100,7 +99,7 @@ function getStoreChatCount(store) {
 }
 // ─── Start ────────────────────────────────────────────────────────────────────
 const start = async () => {
-  const store = new MessageStore({ maxMessagesPerChat: 100, ttl: 24 * 60 * 60 * 1000 });
+  const store = new MessageStore({ maxMessagesPerChat: 500, ttl: 24 * 60 * 60 * 1000 });
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
   const { version } = await fetchLatestBaileysVersion();
   const logger = pino({ level: "silent" })
@@ -152,10 +151,11 @@ const start = async () => {
   // Initialize database
   try {
     await db.init();
+    global.db = db.db;
     global.log.success('Database initialized');
     
     // Auto-load all chats from store
-    await db.loadAllChatsFromStore(store);
+    await db.loadAllChatsFromStore(sock.store);
     global.log.success(`Loaded ${getStoreChatCount(store)} chats to database`);
   } catch (err) {
     global.log.error(`Database init error: ${err.message}`);

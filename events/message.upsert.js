@@ -30,25 +30,6 @@ setInterval(() => {
     }
 }, 600_000);
 
-// ─── URL Platform Detector ────────────────────────────────────────────────────
-function detectPlatformFromUrl(url) {
-    const platforms = {
-        youtube: { id: "youtube", name: "YouTube", patterns: [/youtube\.com/i, /youtu\.be/i] },
-        tiktok: { id: "tiktok", name: "TikTok", patterns: [/tiktok\.com/i] },
-        instagram: { id: "instagram", name: "Instagram", patterns: [/instagram\.com/i, /instagr\.am/i] },
-        twitter: { id: "twitter", name: "Twitter/X", patterns: [/twitter\.com/i, /x\.com/i] },
-        facebook: { id: "facebook", name: "Facebook", patterns: [/facebook\.com/i, /fb\.watch/i, /fb\.me/i] },
-        soundcloud: { id: "soundcloud", name: "SoundCloud", patterns: [/soundcloud\.com/i] }
-    };
-
-    for (const [key, platform] of Object.entries(platforms)) {
-        if (platform.patterns.some(pattern => pattern.test(url))) {
-            return platform.id;
-        }
-    }
-
-    return null;
-}
 
 module.exports = {
     register(sock) {
