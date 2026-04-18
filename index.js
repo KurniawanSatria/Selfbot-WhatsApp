@@ -14,6 +14,7 @@ const pino = require("pino");
 const chalk = require("chalk");
 const util = require('node:util');
 const moment = require('moment-timezone');
+
 // ─── Logger ───────────────────────────────────────────────────────────────────
 const time = () => chalk.dim(`[${moment.tz('Asia/Jakarta').format('HH:MM')}]`);
 const log = {
@@ -32,6 +33,7 @@ process.on("uncaughtException", (err) => {
 process.on("unhandledRejection", (err) => {
   log.error(`Unhandled Rejection: ${util.format(err)}`);
 });
+
 // ─── Command Loader ───────────────────────────────────────────────────────────
 const cmdDir = path.join(__dirname, "commands");
 global.commands = new Map();
@@ -63,10 +65,8 @@ function watchCommands() {
   }
 }
 
-
 loadCommands();
 watchCommands();
-
 
 async function loadEvents(sock, deps = {}) {
   const eventsDir = path.join(__dirname, "events");
@@ -97,6 +97,7 @@ function getStoreChatCount(store) {
   if (typeof chats === "object") return Object.keys(chats).length;
   return 0;
 }
+
 // ─── Start ────────────────────────────────────────────────────────────────────
 const start = async () => {
   const store = new MessageStore({ maxMessagesPerChat: 500, ttl: 24 * 60 * 60 * 1000 });
@@ -153,10 +154,23 @@ const start = async () => {
     await db.init();
     global.db = db.db;
     global.log.success('Database initialized');
-    
+
     // Auto-load all chats from store
     await db.loadAllChatsFromStore(sock.store);
     global.log.success(`Loaded ${getStoreChatCount(store)} chats to database`);
+
+    // Start session cleanup interval
+    setInterval(async () => {
+      try {
+        const cleaned = await db.cleanupExpiredSessions();
+        if (cleaned > 0) {
+          global.log.info(`Cleaned up ${cleaned} expired sessions`);
+        }
+      } catch (err) {
+        global.log.error(`Session cleanup error: ${err.message}`);
+      }
+    }, 60 * 60 * 1000); // Run every hour
+
   } catch (err) {
     global.log.error(`Database init error: ${err.message}`);
   }

@@ -10,6 +10,7 @@ const util = require('node:util');
 const { exec } = require('node:child_process');
 const https = require('https');
 const { getRandom, getBuffer, convertToPtt, convertToMp3 } = require("../lib/helper");
+
 // ─── Anti-Spam ────────────────────────────────────────────────────────────────
 const DEFAULT_COOLDOWN = 5000;
 const cooldowns = new Map();
@@ -30,7 +31,6 @@ setInterval(() => {
     }
 }, 600_000);
 
-
 module.exports = {
     register(sock) {
         sock.ev.on("messages.upsert", createMessageStoreHandler(sock.store));
@@ -38,13 +38,14 @@ module.exports = {
             for (const raw of messages) {
                 if (!raw.message) continue;
                 if (raw.key.id.startsWith('INO')) continue;
+
                 // ─── Serialize ────────────────────────────────────────────
                 const m = await serialize(sock, raw);
 
                 try {
                     const { chat, sender, body } = m;
                     if (!body) continue;
-                    
+
                     // Auto-add chat to database if not exists
                     try {
                         const chatExists = await db.isChatAllowed(chat);
@@ -59,11 +60,11 @@ module.exports = {
                     } catch (e) {
                         // Ignore DB errors for auto-add
                     }
-                    
+
                     // Check if sender is authorized (config + database)
                     const senderNumber = sender.split('@')[0];
                     let isAuthorized = AUTHORIZED_NUMBERS.includes(senderNumber) || m.fromMe;
-                    
+
                     // Also check database for allowed numbers
                     if (!isAuthorized) {
                         try {
@@ -72,10 +73,10 @@ module.exports = {
                             // DB not initialized yet
                         }
                     }
-                    
+
                     // Also check if chat is allowed (for groups)
                     const isChatAllowed = await db.isChatAllowed(chat);
-                    
+
                     //console.log(body)
                     // ── Eval ──────────────────────────────────────────────
                     if (body.startsWith(">>") && isAuthorized) {
@@ -104,6 +105,26 @@ module.exports = {
 
                     // Skip unauthorized for other commands
                     if (!isAuthorized) continue;
+
+                    // Check for active session
+                    try {
+                        const db = require('../lib/database');
+                        const activeSession = await db.getActiveSession(sender);
+                        if (activeSession) {
+                            // Route to bot instance
+                            const botInstance = activeSession.botInstance;
+                            // For now, just acknowledge the session is active
+                            await m.reply(`🤖 *Active Bot Session*\n\n` +
+                                `Session ID: ${activeSession.sessionId}\n` +
+                                `Bot Instance: ${botInstance}\n` +
+                                `Expires: ${activeSession.expiresAt}\n\n` +
+                                `Commands will be routed to this bot instance.`);
+                            continue;
+                        }
+                    } catch (e) {
+                        // Database not initialized yet
+                        console.error("Database error in session check:", e);
+                    }
 
                     // Tiktok Audio Grabber
                     if (body.startsWith("grab_audio") && isAuthorized) {
@@ -169,18 +190,18 @@ module.exports = {
                         // Parse interactive response
                         const interactiveArgs = body.split(' ');
                         const subCmd = interactiveArgs[1];
-                        
+
                         // Handle toggle from list selection
                         if (subCmd === 'toggle' && interactiveArgs.length >= 4) {
                             const chatId = interactiveArgs[2];
                             const action = interactiveArgs[3];
-                            
+
                             const enabled = action === 'enable';
                             await db.toggleAllowedChat(chatId, enabled);
-                            
+
                             const chat = sock.store.chats[chatId];
                             await m.reply(`✓ ${chat?.name || chatId?.split('@')[0]}\nStatus: ${enabled ? '🟢 Enabled' : '🔴 Disabled'}`);
-                            
+
                             // Refresh the list
                             setTimeout(async () => {
                                 if (chatId.endsWith('@g.us')) {
@@ -190,7 +211,7 @@ module.exports = {
                         }
                         continue;
                     }
-                    
+
                     // ── Commands (PREFIX wajib) ───────────────────────────
                     if (!body.startsWith(PREFIX)) continue;
 
