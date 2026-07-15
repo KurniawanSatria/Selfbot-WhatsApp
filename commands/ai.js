@@ -1,7 +1,7 @@
 const OpenAI = require("openai");
 const crypto = require("crypto");
 const util = require("node:util");
-
+const { APIKEY } = require("../config");
 module.exports = {
   name: "ai",
   aliases: ["ask"],
@@ -15,7 +15,7 @@ module.exports = {
     await sock.sendPresenceUpdate("composing", m.key.remoteJid);
 
     const client = new OpenAI({
-      apiKey: "AIzaSyAyroFFbvqh2m1OgpHOGeiq2A7B1chtslw",
+      apiKey: APIKEY,
       baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
     });
 
