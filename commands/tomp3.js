@@ -2,9 +2,9 @@ const { downloadMediaMessage, getContentType } = require("baileys");
 const { sendAudio, getBuffer } = require("../lib/helper");
 
 module.exports = {
-    name: "toptt",
-    aliases: ["tovn"],
-    description: "Convert audio to voice note (PTT)",
+    name: "topmp3",
+    aliases: ["toaud"],
+    description: "Convert video to audio (MP3)",
     category: "media",
     cooldown:    5000,
 
@@ -32,12 +32,12 @@ module.exports = {
                 targetType = getContentType(m.message);
             }
 
-            const isAudio = targetType === "audioMessage";
+            const isAudio = targetType === "videoMessage";
 
             if (!isAudio) return reply("❌ Reply audio!");
 
             const media = await downloadMediaMessage(targetMsg, "buffer", {}, { logger: global.logger, reuploadRequest: sock.updateMediaMessage });
-            await sendAudio(sock, m.key.remoteJid, media, true, { quoted: m })
+            await sendAudio(sock, m.key.remoteJid, media, false, { quoted: m })
         } catch (err) {
             console.error("sticker error:", err.message);
             reply("❌ Gagal Convert " + err.message);

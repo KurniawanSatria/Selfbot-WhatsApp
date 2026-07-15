@@ -7,7 +7,6 @@ module.exports = {
 
   async run(sock, m, args, reply) {
     try {
-      // ambil target: quoted dulu, kalau tidak ada cek pesan itu sendiri
       const quoted = m.quoted || m;
       const mime = (quoted.msg || quoted).mimetype || "";
       const qmsg = quoted.msg || quoted;

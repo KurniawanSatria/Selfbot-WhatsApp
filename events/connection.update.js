@@ -16,7 +16,6 @@ module.exports = {
                     const chalk = require("chalk");
                     console.log("\n" + chalk.bgMagenta.bold(` 📲 PAIRING CODE: ${code} `) + "\n");
                 } catch {
-                    // QR mode
                 }
             }
 

@@ -5,7 +5,6 @@ const { join } = require('path');
 const chalk = require('chalk');
 const moment = require('moment-timezone');
 
-// ─── Logger ───────────────────────────────────────────────────────────────────
 const timestamp = () => chalk.dim(`[${moment.tz('Asia/Jakarta').format('HH:mm')}]`);
 
 const log = {
@@ -17,7 +16,6 @@ const log = {
   reload:  (...a) => console.log(timestamp(), chalk.blue('↻'),    ...a),
 };
 
-// ─── Process Error Handlers ───────────────────────────────────────────────────
 process.on('unhandledRejection', (reason) => {
   log.error('Unhandled Rejection:', reason instanceof Error ? reason.message : reason);
 });
@@ -26,7 +24,6 @@ process.on('uncaughtException', (error) => {
   log.error('Uncaught Exception:', error.message);
 });
 
-// ─── Nodemon Spawner ──────────────────────────────────────────────────────────
 let nodemonProc = null;
 let isRunning = false;
 
@@ -68,7 +65,6 @@ function spawnNodemon(file) {
   return nodemonProc;
 }
 
-// Create nodemon.json first (or ensure it exists)
 const nodemonConfig = `{
   "watch": ["."],
   "ext": "js",

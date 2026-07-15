@@ -10,12 +10,10 @@ module.exports = {
         const { isGroup, sender, body } = m;
         const senderNumber = sender.split('@')[0];
         
-        // Initialize database
         await db.init();
         
         const subCommand = args[0]?.toLowerCase();
         
-        // ─── HELP ──────────────────────────────────────────────────────────────
         if (!subCommand || subCommand === 'help') {
             let helpText = `*━━ ALLOWED MANAGER ━━*\n\n`;
             helpText += `*Available Commands:*\n`;
@@ -62,7 +60,6 @@ module.exports = {
             return;
         }
         
-        // ─── NUMBERS ───────────────────────────────────────────────────────────
         if (subCommand === 'numbers') {
             const numbers = await db.getAllowedNumbers();
             if (numbers.length === 0) {
@@ -101,7 +98,6 @@ module.exports = {
             return;
         }
         
-        // ─── CHATS ─────────────────────────────────────────────────────────────
         if (subCommand === 'chats' || subCommand === 'groups') {
             let chats = await db.getAllowedChats();
             
@@ -113,7 +109,6 @@ module.exports = {
                 return reply('No chats registered yet. Use /allowed refresh to load all chats.');
             }
             
-            // Create interactive list
             const sections = [{
                 title: subCommand === 'groups' ? 'Group Chats' : 'All Chats',
                 rows: chats.map((c, i) => ({
@@ -157,7 +152,6 @@ module.exports = {
             return;
         }
         
-        // ─── TOGGLE ────────────────────────────────────────────────────────────
         if (subCommand === 'toggle') {
             const chatId = args[1];
             const action = args[2];
@@ -177,7 +171,6 @@ module.exports = {
             return;
         }
         
-        // ─── SETTINGS ──────────────────────────────────────────────────────────
         if (subCommand === 'settings') {
             const key = args[1];
             const value = args[2];
@@ -202,10 +195,7 @@ module.exports = {
             return reply('Usage: /allowed settings <key> <value>');
         }
         
-        // ─── INTERACTIVE RESPONSE ──────────────────────────────────────────────
-        // Handle interactive button responses
         if (m.isText && body.startsWith('allowed ')) {
-            // This will be handled by message.upsert.js interactive response
             return;
         }
     }

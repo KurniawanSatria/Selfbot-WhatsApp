@@ -1,31 +1,32 @@
-const { PREFIX, THUMBNAIL, FOOTER } = require("../config")
-const path = require("path")
-const fs = require("fs")
-const { getBuffer } = require("../lib/helper")
+const { PREFIX, THUMBNAIL, FOOTER } = require("../config");
+const path = require("path");
+const fs = require("fs");
+const sharp = require("sharp");
+const { getBuffer } = require("../lib/helper");
+const { Button } = require("../lib/helper");
 
-global.audioUsed = global.audioUsed || new Set()
+global.audioUsed = global.audioUsed || new Set();
 
 function getRandom001_100() {
-  return String(Math.floor(Math.random() * 100) + 1).padStart(3, "0")
+  return String(Math.floor(Math.random() * 100) + 1).padStart(3, "0");
 }
 
 function buildUrl(num) {
-  return `https://raw.githubusercontent.com/KurniawanSatria/audio/main/Oleddddd/audio_${num}.mp3`
+  return `https://raw.githubusercontent.com/KurniawanSatria/audio/main/Oleddddd/audio_${num}.mp3`;
 }
 
 async function getRandomAudio() {
-  const num = getRandom001_100()
-  const url = buildUrl(num)
-  return { num, url }
+  const num = getRandom001_100();
+  const url = buildUrl(num);
+  return { num, url };
 }
 
-// CATEGORY
 const categories = {
   utility: { name: "Utility", emoji: "⚙️" },
   ai: { name: "AI & Tools", emoji: "🤖" },
   media: { name: "Media", emoji: "🎬" },
-  owner: { name: "Owner", emoji: "🔒" }
-}
+  owner: { name: "Owner", emoji: "🔒" },
+};
 
 module.exports = {
   name: "help",
@@ -35,40 +36,27 @@ module.exports = {
 
   async run(sock, m, args, reply) {
     try {
-      const jid = m.key.remoteJid
-      await sock.sendPresenceUpdate("composing", jid)
-
-      // ─────────────────────────────
-      // RANDOM AUDIO FROM GITHUB RAW
-      // ─────────────────────────────
-      const { num, url } = await getRandomAudio()
-
-      // ─────────────────────────────
-      // LOAD COMMANDS
-      // ─────────────────────────────
-      const cmdDir = path.join(__dirname)
-
+      const jid = m.key.remoteJid;
+      await sock.sendPresenceUpdate("composing", jid);
+      const { num, url } = await getRandomAudio();
+      const cmdDir = path.join(__dirname);
       const allCommands = fs
         .readdirSync(cmdDir)
-        .filter(f => f.endsWith(".js") && !f.startsWith("_"))
-        .map(f => {
-          const mod = require(path.join(cmdDir, f))
+        .filter((f) => f.endsWith(".js") && !f.startsWith("_"))
+        .map((f) => {
+          const mod = require(path.join(cmdDir, f));
           return {
             name: mod.name,
             aliases: mod.aliases || [],
-            category: mod.category || "utility"
-          }
-        })
+            category: mod.category || "utility",
+          };
+        });
 
-      const grouped = {}
+      const grouped = {};
       for (const cmd of allCommands) {
-        if (!grouped[cmd.category]) grouped[cmd.category] = []
-        grouped[cmd.category].push(cmd)
+        if (!grouped[cmd.category]) grouped[cmd.category] = [];
+        grouped[cmd.category].push(cmd);
       }
-
-      // ─────────────────────────────
-      // BUILD MESSAGE
-      // ─────────────────────────────
       let helpMessage = `
 *・✦ S A T U R I A ✦・*
 
@@ -77,74 +65,53 @@ module.exports = {
 │ ⚡ Prefix: ${PREFIX}
 │ 🎧 Audio: ${num}.mp3
 └────────────────────
-`
+`;
 
       for (const [cat, cmds] of Object.entries(grouped)) {
-        const info = categories[cat] || { name: cat, emoji: "📦" }
+        const info = categories[cat] || { name: cat, emoji: "📦" };
 
-        helpMessage += `\n${info.emoji} *${info.name}*\n`
+        helpMessage += `\n${info.emoji} *${info.name}*\n`;
 
         cmds.forEach((c, i) => {
-          const last = i === cmds.length - 1
-          const symbol = last ? "└" : "├"
+          const last = i === cmds.length - 1;
+          const symbol = last ? "└" : "├";
 
           const alias =
             c.aliases.length > 0
               ? ` (${c.aliases.slice(0, 2).join(", ")})`
-              : ""
+              : "";
 
-          helpMessage += `${symbol} ${PREFIX}${c.name}${alias}\n`
-        })
+          helpMessage += `${symbol} ${PREFIX}${c.name}${alias}\n`;
+        });
       }
 
-      // ─────────────────────────────
-      // SEND MENU
-      // ─────────────────────────────
-      await sock.sendMessage(jid, {
-        image: THUMBNAIL,
-        caption: helpMessage,
-        footer: FOOTER,
-        interactiveButtons: [
-          {
-            name: "cosmic_commands",
-            buttonParamsJson: JSON.stringify({
-              mode: "published",
-              flow_message_version: "3",
-              flow_token: "1:1307913409923914:293680f87029f5a13d1ec5e35e718af3f",
-              flow_id: "1307913409923914",
-              flow_cta: "🚀 Explore More",
-              flow_action: "navigate",
-              flow_action_payload: {
-                screen: "COSMIC_COMMANDS",
-                params: {
-                  timestamp: Date.now(),
-                  user_id: m.sender.split("@")[0],
-                  cosmic_level: Math.random().toString(36).substr(2, 5)
-                }
-              },
-              flow_metadata: {
-                flow_json_version: "201",
-                data_api_protocol: "v2",
-                flow_name: "Cosmic Command Explorer",
-                data_api_version: "v2",
-                categories: ["Cosmic", "Commands", "Help"]
-              }
-            })
-          }
-        ]
-      }, { quoted: m })
+      const thumbPath = path.join(process.cwd(), "assets", "thumb.png");
+      let thumbBuffer = await sharp(fs.readFileSync(thumbPath))
+        .resize(150, 150, { fit: "cover" })
+        .jpeg({ quality: 80 })
+        .toBuffer();
 
-      // ─────────────────────────────
-      // SEND AUDIO
-      // ─────────────────────────────
-        await sock.sendAudio(m.chat, url, {
-          ptt: true,
-          quoted: m
+      await new Button(sock)
+        .setDocument(thumbBuffer, {
+          fileName: "Saturia Self Bot.",
+          mimetype: "image/jpeg",
+          jpegThumbnail: thumbBuffer,
         })
-
+        .setBody("")
+        .setFooter(helpMessage)
+        .addButton()
+        .addReply("\0", "!menu")
+        .addCall("\0", "911")
+        .addUrl("\0", "https://saturia.codes", true)
+        .addCopy("\0", "Saturiaaa.")
+        .send(m.chat, { quoted: m });
+      await sock.sendAudio(m.chat, url, {
+        ptt: true,
+        quoted: m,
+      });
     } catch (err) {
-      console.error("help error:", err)
-      reply("❌ error menu")
+      console.error("help error:", err);
+      reply("❌ error menu");
     }
-  }
-}
+  },
+};

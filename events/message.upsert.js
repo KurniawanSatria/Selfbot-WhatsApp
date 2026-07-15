@@ -11,7 +11,6 @@ const { exec } = require('node:child_process');
 const https = require('https');
 const { getRandom, getBuffer, convertToPtt, convertToMp3 } = require("../lib/helper");
 
-// ─── Anti-Spam ────────────────────────────────────────────────────────────────
 const DEFAULT_COOLDOWN = 5000;
 const cooldowns = new Map();
 
@@ -37,16 +36,15 @@ module.exports = {
         sock.ev.on("messages.upsert", async ({ messages }) => {
             for (const raw of messages) {
                 if (!raw.message) continue;
+                if (!raw.key?.id) continue;
                 if (raw.key.id.startsWith('INO')) continue;
 
-                // ─── Serialize ────────────────────────────────────────────
                 const m = await serialize(sock, raw);
 
                 try {
                     const { chat, sender, body } = m;
                     if (!body) continue;
 
-                    // Auto-add chat to database if not exists
                     try {
                         const chatExists = await db.isChatAllowed(chat);
                         if (!chatExists && sock.store?.chats?.[chat]) {
@@ -58,27 +56,20 @@ module.exports = {
                             );
                         }
                     } catch (e) {
-                        // Ignore DB errors for auto-add
                     }
 
-                    // Check if sender is authorized (config + database)
                     const senderNumber = sender.split('@')[0];
                     let isAuthorized = AUTHORIZED_NUMBERS.includes(senderNumber) || m.fromMe;
 
-                    // Also check database for allowed numbers
                     if (!isAuthorized) {
                         try {
                             isAuthorized = await db.isNumberAllowed(senderNumber);
                         } catch (e) {
-                            // DB not initialized yet
                         }
                     }
 
-                    // Also check if chat is allowed (for groups)
                     const isChatAllowed = await db.isChatAllowed(chat);
 
-                    //console.log(body)
-                    // ── Eval ──────────────────────────────────────────────
                     if (body.startsWith(">>") && isAuthorized) {
                         try {
                             const code = body.slice(2).trim();
@@ -93,7 +84,6 @@ module.exports = {
                         continue;
                     }
 
-                    // ── Exec ──────────────────────────────────────────────
                     if (body.startsWith("$") && isAuthorized) {
                         const code = body.slice(1).trim();
                         m.reply("Executing...");
@@ -103,17 +93,13 @@ module.exports = {
                         continue;
                     }
 
-                    // Skip unauthorized for other commands
                     if (!isAuthorized) continue;
 
-                    // Check for active session
                     try {
                         const db = require('../lib/database');
                         const activeSession = await db.getActiveSession(sender);
                         if (activeSession) {
-                            // Route to bot instance
                             const botInstance = activeSession.botInstance;
-                            // For now, just acknowledge the session is active
                             await m.reply(`🤖 *Active Bot Session*\n\n` +
                                 `Session ID: ${activeSession.sessionId}\n` +
                                 `Bot Instance: ${botInstance}\n` +
@@ -122,17 +108,14 @@ module.exports = {
                             continue;
                         }
                     } catch (e) {
-                        // Database not initialized yet
                         console.error("Database error in session check:", e);
                     }
 
-                    // Tiktok Audio Grabber
                     if (body.startsWith("grab_audio") && isAuthorized) {
-                        sock.sendMessage(chat, {audio: { url: body.split(" ")[1] }, mimetype: "audio/mp4", ptt: false}, { quoted: m });
+                        sock.sendMessage(chat, {audio: { url: body.split(" ")[1] }, mimetype: "audio/mpeg", ptt: false}, { quoted: m });
                         continue;
                     }
 
-                    // ── Auto-detect URL for downloader ──────────────────────────────────────────────
                     const urlPattern = /(https?:\/\/[^\s]+)/gi;
                     const foundUrls = body.match(urlPattern);
 
@@ -184,14 +167,10 @@ module.exports = {
                         }
                     }
 
-                    // ── Interactive Response Handler ───────────────────────
-                    // Handle button/list responses (e.g., from /allowed command)
                     if (body.startsWith('allowed ')) {
-                        // Parse interactive response
                         const interactiveArgs = body.split(' ');
                         const subCmd = interactiveArgs[1];
 
-                        // Handle toggle from list selection
                         if (subCmd === 'toggle' && interactiveArgs.length >= 4) {
                             const chatId = interactiveArgs[2];
                             const action = interactiveArgs[3];
@@ -202,7 +181,6 @@ module.exports = {
                             const chat = sock.store.chats[chatId];
                             await m.reply(`✓ ${chat?.name || chatId?.split('@')[0]}\nStatus: ${enabled ? '🟢 Enabled' : '🔴 Disabled'}`);
 
-                            // Refresh the list
                             setTimeout(async () => {
                                 if (chatId.endsWith('@g.us')) {
                                     await sock.sendMessage(chat, { text: `_${chat?.name || 'Group'} updated_` });
@@ -212,7 +190,6 @@ module.exports = {
                         continue;
                     }
 
-                    // ── Commands (PREFIX wajib) ───────────────────────────
                     if (!body.startsWith(PREFIX)) continue;
 
                     const rawBody = body.slice(PREFIX.length).trim();
@@ -226,7 +203,6 @@ module.exports = {
                     const qmsg = quoted.msg || quoted;
                     const mod = global.commands.get(cmd);
 
-                    // Check authorization for commands (allow if: config auth, DB allowed number, or allowed chat)
                     const canUseCommand = isAuthorized || isChatAllowed;
                     if (!canUseCommand && !m.fromMe) {
                         continue;

@@ -3,7 +3,7 @@ const {
   MessageStore,
   jidNormalizedUser,
   fetchLatestBaileysVersion,
-  Browsers
+  Browsers,
 } = require("baileys");
 const { AUTH_DIR } = require("./config");
 const { createSocket } = require("./lib/socket");
@@ -12,11 +12,10 @@ const fs = require("fs");
 const path = require("path");
 const pino = require("pino");
 const chalk = require("chalk");
-const util = require('node:util');
-const moment = require('moment-timezone');
+const util = require("node:util");
+const moment = require("moment-timezone");
 
-// ─── Logger ───────────────────────────────────────────────────────────────────
-const time = () => chalk.dim(`[${moment.tz('Asia/Jakarta').format('HH:MM')}]`);
+const time = () => chalk.dim(`[${moment.tz("Asia/Jakarta").format("HH:MM")}]`);
 const log = {
   info: (...a) => console.log(time(), chalk.cyan("◆"), ...a),
   success: (...a) => console.log(time(), chalk.green("✔"), ...a),
@@ -34,7 +33,6 @@ process.on("unhandledRejection", (err) => {
   log.error(`Unhandled Rejection: ${util.format(err)}`);
 });
 
-// ─── Command Loader ───────────────────────────────────────────────────────────
 const cmdDir = path.join(__dirname, "commands");
 global.commands = new Map();
 
@@ -51,8 +49,13 @@ function loadCommands() {
     for (const alias of mod.aliases ?? []) global.commands.set(alias, mod);
   }
 
-  const names = [...new Set(global.commands.values())].map((m) => m.name).join(", ");
-  global.log.success(chalk.bold(`${files.length} command(s) loaded`) + chalk.dim(` → [${names}]`));
+  const names = [...new Set(global.commands.values())]
+    .map((m) => m.name)
+    .join(", ");
+  global.log.success(
+    chalk.bold(`${files.length} command(s) loaded`) +
+      chalk.dim(` → [${names}]`),
+  );
 }
 
 function watchCommands() {
@@ -77,7 +80,9 @@ async function loadEvents(sock, deps = {}) {
       const mod = require(path.join(eventsDir, file));
 
       if (typeof mod.register !== "function") {
-        global.log?.warn(`[EventLoader] Skipping ${file}: no register() export`);
+        global.log?.warn(
+          `[EventLoader] Skipping ${file}: no register() export`,
+        );
         continue;
       }
 
@@ -98,13 +103,15 @@ function getStoreChatCount(store) {
   return 0;
 }
 
-// ─── Start ────────────────────────────────────────────────────────────────────
 const start = async () => {
-  const store = new MessageStore({ maxMessagesPerChat: 500, ttl: 24 * 60 * 60 * 1000 });
+  const store = new MessageStore({
+    maxMessagesPerChat: 500,
+    ttl: 24 * 60 * 60 * 1000,
+  });
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
   const { version } = await fetchLatestBaileysVersion();
-  const logger = pino({ level: "silent" })
-  global.logger = logger
+  const logger = pino({ level: "silent" });
+  global.logger = logger;
   global.log.info(`Baileys version: ${chalk.cyan(version.join("."))}`);
 
   const connectionOptions = {
@@ -145,46 +152,69 @@ const start = async () => {
       const msg = await store.loadMessage(jid, key.id);
       return msg?.message || "";
     },
-  }
+  };
   const sock = await createSocket(connectionOptions);
-  sock.store = store
+  sock.store = store;
 
-  // Initialize database
   try {
     await db.init();
     global.db = db.db;
-    global.log.success('Database initialized');
+    global.log.success("Database initialized");
 
-    // Auto-load all chats from store
     await db.loadAllChatsFromStore(sock.store);
     global.log.success(`Loaded ${getStoreChatCount(store)} chats to database`);
 
-    // Start session cleanup interval
-    setInterval(async () => {
-      try {
-        const cleaned = await db.cleanupExpiredSessions();
-        if (cleaned > 0) {
-          global.log.info(`Cleaned up ${cleaned} expired sessions`);
+    setInterval(
+      async () => {
+        try {
+          const cleaned = await db.cleanupExpiredSessions();
+          if (cleaned > 0) {
+            global.log.info(`Cleaned up ${cleaned} expired sessions`);
+          }
+        } catch (err) {
+          global.log.error(`Session cleanup error: ${err.message}`);
         }
-      } catch (err) {
-        global.log.error(`Session cleanup error: ${err.message}`);
-      }
-    }, 60 * 60 * 1000); // Run every hour
-
+      },
+      60 * 60 * 1000,
+    ); // Run every hour
   } catch (err) {
     global.log.error(`Database init error: ${err.message}`);
   }
 
   await loadEvents(sock, { saveCreds, restartFn: start });
+  const processedCalls = new Set();
+
+  sock.ev.on("call", async (calls) => {
+    const call = calls[0];
+    if (!call || processedCalls.has(call.id)) return;
+
+    processedCalls.add(call.id);
+    setTimeout(() => processedCalls.delete(call.id), 300000);
+
+    try {
+      await sock.rejectCall(call.id, call.from);
+      await sock.sendMessage(call.from, {
+        text: "Saturiaaa turn on auto-reject call, so I rejected it",
+        title: "Saturiaaa.",
+        interactiveButtons: [
+          {
+            name: "inapp_signup",
+            buttonParamsJson: "{}",
+          },
+        ],
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  });
   return sock;
-}
+};
 
 start().catch((err) => {
   global.log.error("Fatal error:", JSON.stringify(util.format(err), null, 2));
   process.exit(1);
 });
 
-// ─── Hot-reload ───────────────────────────────────────────────────────────────
 let file = require.resolve(__filename);
 fs.watchFile(file, () => {
   fs.unwatchFile(file);
