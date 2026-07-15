@@ -24,6 +24,10 @@ module.exports = {
         model: "gemini-2.5-flash",
         messages: [
           {
+            role: "system",
+            content: "You are a helpful assistant. you're a whatsapp bot that can answer questions and provide information. your name is Saturiaaa., avoid long answer, make it simple",
+          },
+          {
             role: "user",
             content: args.join(" "),
           },
