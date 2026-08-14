@@ -1,6 +1,7 @@
 const { PREFIX, THUMBNAIL, FOOTER } = require("../config");
 const path = require("path");
 const fs = require("fs");
+const { generateWAMessageFromContent } = require("baileys");
 const sharp = require("sharp");
 const { getBuffer } = require("../lib/helper");
 const { Button } = require("../lib/helper");
@@ -85,26 +86,63 @@ module.exports = {
         });
       }
 
-      const thumbPath = path.join(process.cwd(), "assets", "thumb.png");
+      const thumbPath = path.join(process.cwd(), "assets", "image.png");
       let thumbBuffer = await sharp(fs.readFileSync(thumbPath))
-        .resize(150, 150, { fit: "cover" })
+        .resize(150, 150, { fit: 'contain', background: { r: 36, g: 38, b: 38 } })
         .jpeg({ quality: 80 })
         .toBuffer();
 
-      await new Button(sock)
-        .setDocument(thumbBuffer, {
-          fileName: "Saturia Self Bot.",
-          mimetype: "image/jpeg",
-          jpegThumbnail: thumbBuffer,
-        })
-        .setBody("")
-        .setFooter(helpMessage)
-        .addButton()
-        .addReply("\0", "!menu")
-        .addCall("\0", "911")
-        .addUrl("\0", "https://saturia.codes", true)
-        .addCopy("\0", "Saturiaaa.")
-        .send(m.chat, { quoted: m });
+      const msg = generateWAMessageFromContent(
+        m.chat,
+        {
+          buttonsMessage: {
+            contentText: helpMessage,
+            footerText: "© Saturiaaa",
+            headerType: 6,
+            locationMessage: {
+              degreesLatitude: 0,
+              degreesLongitude: 0,
+              name: "Saturia",
+              address: "Self Bot",
+              jpegThumbnail: thumbBuffer,
+            },
+            viewOnce: true,
+            contextInfo: {},
+            buttons: [
+              {
+                buttonId: ".owner",
+                buttonText: { displayText: "DEVELOPER" },
+                type: 1,
+              },
+              {
+                buttonId: ".ping",
+                buttonText: { displayText: "PING" },
+                type: 1,
+              },
+            ],
+          },
+        },
+        { quoted: m },
+      );
+
+      await sock.relayMessage(msg.key.remoteJid, msg.message, {
+        messageId: msg.key.id,
+        additionalNodes: [
+          {
+            tag: "biz",
+            attrs: {},
+            content: [
+              {
+                tag: "interactive",
+                attrs: { type: "native_flow", v: "1" },
+                content: [
+                  { tag: "native_flow", attrs: { v: "9", name: "mixed" } },
+                ],
+              },
+            ],
+          },
+        ],
+      });
       await sock.sendAudio(m.chat, url, {
         ptt: true,
         quoted: m,

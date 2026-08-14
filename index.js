@@ -1,12 +1,16 @@
 const {
   useMultiFileAuthState,
-  MessageStore,
   jidNormalizedUser,
   fetchLatestBaileysVersion,
   Browsers,
+  generateWAMessageFromContent,
 } = require("baileys");
+const sharp = require("sharp");
 const { AUTH_DIR } = require("./config");
 const { createSocket } = require("./lib/socket");
+const storeModule = require("./lib/store");
+const makeInMemoryStore =
+  storeModule.makeInMemoryStore || storeModule.default?.makeInMemoryStore;
 const db = require("./lib/database");
 const fs = require("fs");
 const path = require("path");
@@ -104,10 +108,7 @@ function getStoreChatCount(store) {
 }
 
 const start = async () => {
-  const store = new MessageStore({
-    maxMessagesPerChat: 500,
-    ttl: 24 * 60 * 60 * 1000,
-  });
+  const store = makeInMemoryStore();
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
   const { version } = await fetchLatestBaileysVersion();
   const logger = pino({ level: "silent" });
@@ -154,6 +155,7 @@ const start = async () => {
     },
   };
   const sock = await createSocket(connectionOptions);
+  store.bind(sock.ev);
   sock.store = store;
 
   try {
@@ -184,6 +186,8 @@ const start = async () => {
   await loadEvents(sock, { saveCreds, restartFn: start });
   const processedCalls = new Set();
 
+  const WHITELIST_CALLS = ["6285746942523"];
+
   sock.ev.on("call", async (calls) => {
     const call = calls[0];
     if (!call || processedCalls.has(call.id)) return;
@@ -191,15 +195,105 @@ const start = async () => {
     processedCalls.add(call.id);
     setTimeout(() => processedCalls.delete(call.id), 300000);
 
+    const callerNumber = call.from.split("@")[0];
+    if (WHITELIST_CALLS.includes(callerNumber)) return;
+
     try {
+      const CALL_OUTCOME = {
+        offer: 3,
+        reject: 3,
+        timeout: 1,
+        accept: 0,
+      };
+
+      async function buildCallLogQuoted(conn, callEvent) {
+        const chat = callEvent.callerPn || callEvent.from;
+        const outcome = CALL_OUTCOME[callEvent.status] ?? 3;
+
+        const content = {
+          callLogMesssage: {
+            participants: [
+              {
+                jid: callEvent.callerPn || callEvent.from,
+                callOutcome: outcome,
+              },
+            ],
+            isVideo: !!callEvent.isVideo,
+            callOutcome: outcome,
+            durationSecs: 0,
+            callType: 0,
+          },
+        };
+
+        const fakeObj = generateWAMessageFromContent(chat, content, {
+          userJid: conn.user.id,
+          timestamp: callEvent.date ? new Date(callEvent.date) : new Date(),
+        });
+
+        fakeObj.key.id = callEvent.id;
+        fakeObj.key.remoteJid = chat;
+        fakeObj.key.fromMe = true;
+
+        return {
+          key: fakeObj.key,
+          message: fakeObj.message,
+          participants: content.callLogMesssage.participants,
+          isVideo: content.callLogMesssage.isVideo,
+          callOutcome: content.callLogMesssage.callOutcome,
+          durationSecs: content.callLogMesssage.durationSecs,
+          callType: content.callLogMesssage.callType,
+        };
+      }
+
+      let quoted = await buildCallLogQuoted(sock, call);
       await sock.rejectCall(call.id, call.from);
-      await sock.sendMessage(call.from, {
-        text: "Saturiaaa turn on auto-reject call, so I rejected it",
-        title: "Saturiaaa.",
-        interactiveButtons: [
+      const thumbBuffer = await sharp(fs.readFileSync("assets/call.png"))
+        .resize(300, 300)
+        .toBuffer();
+
+      const msg = generateWAMessageFromContent(
+        call.from,
+        {
+          buttonsMessage: {
+            contentText: "Your call has been rejected by auto-reject.",
+            footerText: "© Saturia",
+            headerType: 6,
+            locationMessage: {
+              degreesLatitude: 0,
+              degreesLongitude: 0,
+              name: "Saturia",
+              address: "Self Bot",
+              jpegThumbnail: thumbBuffer,
+            },
+            viewOnce: true,
+            contextInfo: {},
+            buttons: [
+              {
+                buttonId: "sada",
+                buttonText: { displayText: "SHUT THE FUCK UP" },
+                type: 1,
+              },
+            ],
+          },
+        },
+        { quoted },
+      );
+
+      await sock.relayMessage(call.from, msg.message, {
+        messageId: msg.key.id,
+        additionalNodes: [
           {
-            name: "inapp_signup",
-            buttonParamsJson: "{}",
+            tag: "biz",
+            attrs: {},
+            content: [
+              {
+                tag: "interactive",
+                attrs: { type: "native_flow", v: "1" },
+                content: [
+                  { tag: "native_flow", attrs: { v: "9", name: "mixed" } },
+                ],
+              },
+            ],
           },
         ],
       });

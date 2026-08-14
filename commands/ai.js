@@ -16,16 +16,17 @@ module.exports = {
 
     const client = new OpenAI({
       apiKey: APIKEY,
-      baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
+      baseURL: "https://api.groq.com/openai/v1",
     });
 
     try {
       const res = await client.chat.completions.create({
-        model: "gemini-2.5-flash",
+        model: "openai/gpt-oss-120b",
         messages: [
           {
             role: "system",
-            content: "You are a helpful assistant. you're a whatsapp bot that can answer questions and provide information. your name is Saturiaaa., avoid long answer, make it simple",
+            content:
+              "You are a helpful assistant. you're a whatsapp bot that can answer questions and provide information. your name is Saturiaaa., avoid long answer, make it simple",
           },
           {
             role: "user",
@@ -36,10 +37,19 @@ module.exports = {
 
       const msg = res.choices[0].message;
 
-      await sock.sendMessage(
+      await sock.relayMessage(
         m.key.remoteJid,
         {
-          text: msg.content,
+          interactiveResponseMessage: {
+            body: { text: msg.content, format: 1 },
+            nativeFlowResponseMessage: {
+              name: "galaxy_message",
+              paramsJson: JSON.stringify({
+                wa_flow_response_params: { title: msg.content },
+                version: 3,
+              }),
+            },
+          },
         },
         {
           quoted: m,

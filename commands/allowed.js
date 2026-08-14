@@ -25,38 +25,22 @@ module.exports = {
             helpText += `  • /allowed refresh - Load all chats from store\n\n`;
             helpText += `  • /allowed settings - View settings\n`;
             helpText += `  • /allowed settings <key> <value> - Update setting\n\n`;
-            helpText += `_Use buttons below to manage_`;
-            
-            await reply(helpText, {
-                interactiveButtons: [
-                    {
-                        name: 'single_select',
-                        buttonParamsJson: JSON.stringify({
-                            title: 'Select Action',
-                            sections: [{
-                                title: 'Numbers Management',
-                                rows: [
-                                    { id: 'allowed numbers', title: 'View Numbers', description: 'See all allowed numbers' },
-                                    { id: 'allowed add', title: 'Add Number', description: 'Add new allowed number' },
-                                    { id: 'allowed remove', title: 'Remove Number', description: 'Remove from allowed' }
-                                ]
-                            }, {
-                                title: 'Chats Management',
-                                rows: [
-                                    { id: 'allowed chats', title: 'All Chats', description: 'View all chats' },
-                                    { id: 'allowed groups', title: 'Groups Only', description: 'View groups only' },
-                                    { id: 'allowed refresh', title: 'Refresh Chats', description: 'Load from store' }
-                                ]
-                            }, {
-                                title: 'Settings',
-                                rows: [
-                                    { id: 'allowed settings', title: 'View Settings', description: 'Current settings' }
-                                ]
-                            }]
-                        })
-                    }
-                ]
-            });
+            helpText += `_Use the buttons below to manage_`;
+
+            await sock.sendMessage(m.chat, {
+                text: helpText,
+                footer: '© Saturiaaa',
+                buttonsMessage: {
+                    contentText: helpText,
+                    footerText: '© Saturiaaa',
+                    headerType: 1,
+                    buttons: [
+                        { buttonId: 'allowed numbers', buttonText: { displayText: 'NUMBERS' }, type: 1 },
+                        { buttonId: 'allowed chats', buttonText: { displayText: 'CHATS' }, type: 1 },
+                        { buttonId: 'allowed settings', buttonText: { displayText: 'SETTINGS' }, type: 1 },
+                    ],
+                },
+            }, { quoted: m });
             return;
         }
         
@@ -123,17 +107,20 @@ module.exports = {
             text += `🟢 = Enabled\n🔴 = Disabled\n\n`;
             text += `_Select a chat to toggle_`;
             
-            await reply(text, {
-                interactiveButtons: [
-                    {
-                        name: 'single_select',
-                        buttonParamsJson: JSON.stringify({
-                            title: 'Toggle Chat',
-                            sections
-                        })
-                    }
-                ]
-            });
+            await sock.sendMessage(m.chat, {
+                text,
+                footer: '© Saturiaaa',
+                buttonsMessage: {
+                    contentText: text,
+                    footerText: '© Saturiaaa',
+                    headerType: 1,
+                    buttons: chats.slice(0, 3).map((c, i) => ({
+                        buttonId: `allowed toggle ${c.chatId} ${c.enabled ? 'disable' : 'enable'}`,
+                        buttonText: { displayText: `${c.enabled ? 'DISABLE' : 'ENABLE'} ${i + 1}` },
+                        type: 1,
+                    })),
+                },
+            }, { quoted: m });
             return;
         }
         

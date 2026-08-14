@@ -4,5 +4,6 @@
   "settings": {
     "autoAllowGroups": false,
     "autoAllowContacts": false
-  }
+  },
+  "sessions": {}
 }
