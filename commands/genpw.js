@@ -35,6 +35,6 @@ module.exports = {
         const length = parseInt(args[0]) || 8;
         const password = genPW(length);
         
-        Button()
+       new Button(sock).setBody(`Here is your generated password: \`${password}\``).addCopy("Copy Password", password).send(m.chat);
     },
 };
