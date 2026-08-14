@@ -120,7 +120,7 @@ const start = async () => {
     auth: state,
     printQRInTerminal: false,
     logger,
-    markOnlineOnConnect: false,
+    markOnlineOnConnect: true,
     syncFullHistory: false,
     connectTimeoutMs: 60000,
     defaultQueryTimeoutMs: 0,

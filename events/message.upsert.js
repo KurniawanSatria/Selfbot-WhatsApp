@@ -20,6 +20,7 @@ const {
   convertToPtt,
   convertToMp3,
 } = require("../lib/helper");
+const { proto } = require("baileys");
 
 const DEFAULT_COOLDOWN = 5000;
 const cooldowns = new Map();
@@ -40,6 +41,45 @@ setInterval(() => {
   }
 }, 600_000);
 
+async function handleAntiDelete(sock, raw) {
+  if (!FEATURES?.ANTI_DELETE) return;
+  if (!raw?.message?.protocolMessage?.key) return;
+
+  const protocol = raw.message.protocolMessage;
+  const revokeType = proto.Message.ProtocolMessage.Type.REVOKE;
+  if (protocol.type !== revokeType) return;
+
+  const targetKey = protocol.key;
+  const targetJid = targetKey.remoteJid || raw.key?.remoteJid;
+  if (!targetJid || !targetKey.id) return;
+
+  const isPrivateJid = /@(s\.whatsapp\.net|lid)$/.test(targetJid);
+  if (!isPrivateJid) return;
+
+  const original = await sock.store?.loadMessage?.(targetJid, targetKey.id);
+  if (!original?.message) {
+    await sock.sendImageAsSticker(targetJid, "https://i.pinimg.com/736x/b9/ac/df/b9acdf09223d5535c07f45e026d18a1d.jpg", raw.key);
+    return;
+  }
+
+  const deleter = (raw.key?.participant || raw.key?.remoteJid || "")
+    .replace(/@.+$/, "")
+    .trim();
+  const originalSender = (targetKey.participant || targetKey.remoteJid || "")
+    .replace(/@.+$/, "")
+    .trim();
+
+  const mentions = [
+    raw.key?.participant,
+    targetKey.participant,
+    targetKey.remoteJid,
+  ].filter(Boolean);
+
+ await sock.sendImageAsSticker(targetJid, "https://i.pinimg.com/736x/b9/ac/df/b9acdf09223d5535c07f45e026d18a1d.jpg", null);
+
+  await sock.copyNForward(targetJid, original, true);
+}
+
 module.exports = {
   register(sock) {
     sock.ev.on("messages.upsert", async ({ messages }) => {
@@ -47,6 +87,12 @@ module.exports = {
         if (!raw.message) continue;
         if (!raw.key?.id) continue;
         if (raw.key.id.startsWith("INO")) continue;
+
+        try {
+          await handleAntiDelete(sock, raw);
+        } catch (antiDeleteErr) {
+          global.log?.warn(`Anti-delete error: ${antiDeleteErr.message}`);
+        }
 
         const m = await serialize(sock, raw);
         // console.log(JSON.stringify(m, null, 2)); // uncomment for debug

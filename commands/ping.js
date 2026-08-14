@@ -56,25 +56,14 @@ module.exports = {
 ├・🔄 RSS ⇨ ${(memoryUsage.rss / 1024 / 1024).toFixed(2)}MB
 └・🎭 Threads ⇨ ${cpuInfo.length}
 `.trim();
-      const thumbPath = path.join(process.cwd(), "assets", "thumb.png");
-      let thumbBuffer = await sharp(fs.readFileSync(thumbPath))
-        .resize(150, 150, { fit: "cover" })
-        .jpeg({ quality: 80 })
-        .toBuffer();
 
       await new Button(sock)
-        .setDocument(thumbBuffer, {
-          fileName: "Saturia Self Bot.",
-          mimetype: "image/jpeg",
-          jpegThumbnail: thumbBuffer,
-        })
         .setBody("")
         .setFooter(statusMessage)
         .addButton()
-        .addReply("\0", ".menu")
+        .addReply("\0", "")
         .addCall("\0", "911")
         .addUrl("\0", "https://saturia.codes", true)
-        .addCopy("\0", "Saturiaaa.")
         .send(m.chat, { quoted: m });
     } catch (error) {
       console.error("🌌 Cosmic error:", error);
