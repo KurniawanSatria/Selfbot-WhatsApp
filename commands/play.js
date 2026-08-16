@@ -6,6 +6,7 @@ const { Toolkit } = require("../lib/helper");
 module.exports = {
     name: "play",
     aliases: ["ytplay", "song"],
+    category: "tools",
     cooldown: 15000,
     owner: true,
     description: "Search YouTube & send audio via api.nasirxml.dev. .play <title>",
