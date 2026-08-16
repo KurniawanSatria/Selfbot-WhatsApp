@@ -120,37 +120,24 @@ syncFullHistory: false,
 connectTimeoutMs: 60000,
 defaultQueryTimeoutMs: 0,
 generateHighQualityLinkPreview: true,
-
 patchMessageBeforeSending: (message) => {
-const requiresPatch = !!(
-message.buttonsMessage ||
-message.templateMessage ||
-message.listMessage
-);
+const requiresPatch = !!( message.buttonsMessage || message.templateMessage || message.listMessage );
 if (requiresPatch) {
-message = {
-viewOnceMessage: {
-message: {
-messageContextInfo: {
-deviceListMetadataVersion: 2,
-deviceListMetadata: {},
-},
-...message,
-},
-},
-};
+message = { viewOnceMessage: { message: { messageContextInfo: { deviceListMetadataVersion: 2, deviceListMetadata: {} },...message }}};
 }
 return message;
 },
-
 getMessage: async (key) => {
 const jid = jidNormalizedUser(key.remoteJid);
 const msg = await store.loadMessage(jid, key.id);
 return msg?.message || "";
 },
 };
+
 const sock = await createSocket(connectionOptions);
+
 store.bind(sock.ev);
+
 sock.store = store;
 
 try {
