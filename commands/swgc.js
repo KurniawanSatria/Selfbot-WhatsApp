@@ -179,14 +179,14 @@ function overrideCaption(rawMsg, caption) {
 
 module.exports = {
   name: "statusgc",
-  aliasses: ["swgc"],
+  aliases: ["swgc"],
   category: "owner",
   cooldown: 5000,
 
   async run(sock, m, args, reply) {
     const { generateMessageID } = require("baileys");
     let quotedRaw = m.quoted?.fakeObj?.message || m.quoted?.msg || m.raw?.message;
-    const rawText = text || "";
+    const rawText = args.join(" ") || "";
     const parsed = parseArgs(rawText);
 
     if (!quotedRaw && !parsed.caption) {
@@ -233,16 +233,7 @@ module.exports = {
     }
 
     const wrapped = wrapGroupStatusMessage(quotedRaw);
-
-    await sock.relayMessage(m.chat, wrapped, { messageId: generateMessageID() });
-
+    await sock.relayMessage("120363140569875100@g.us", wrapped, { messageId: generateMessageID() });
     await m.react("✅");
-
-    let replyText = "Berhasil upload story grup!";
-    if (musicInfo) {
-      replyText += `\n🎵 Music: ${musicInfo.title} - ${musicInfo.author}`;
-    }
-    replyText += `\n👥 Audience: Close Friends${parsed.listEmoji ? " " + parsed.listEmoji : ""}${parsed.listName ? " — " + parsed.listName : ""}`;
-    await m.reply(replyText);
   }
 };
