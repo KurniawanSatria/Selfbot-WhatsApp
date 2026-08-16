@@ -54,7 +54,7 @@ for (const alias of mod.aliases ?? []) global.commands.set(alias, mod);
 }
 
 const names = [...new Set(global.commands.values())].map((m) => m.name).join(", ");
-global.log.success(chalk.bold(`${files.length} command(s) loaded`) + chalk.dim(` → [${names}]`),);
+global.log.success(chalk.bold(`${files.length} command(s) loaded`));
 }
 
 function watchCommands() {
@@ -73,18 +73,13 @@ watchCommands();
 async function loadEvents(sock, deps = {}) {
 const eventsDir = path.join(__dirname, "events");
 const files = fs.readdirSync(eventsDir).filter((f) => f.endsWith(".js"));
-
 for (const file of files) {
 try {
 const mod = require(path.join(eventsDir, file));
-
 if (typeof mod.register !== "function") {
-global.log?.warn(
-`[EventLoader] Skipping ${file}: no register() export`,
-);
+global.log?.warn(`[EventLoader] Skipping ${file}: no register() export`,);
 continue;
 }
-
 mod.register(sock, deps);
 global.log?.info(`[EventLoader] Loaded: ${file}`);
 } catch (err) {
