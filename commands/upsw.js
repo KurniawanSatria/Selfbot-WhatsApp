@@ -6,14 +6,11 @@ module.exports = {
     category: "owner",
     description: "Upload Story Without Compression",
     cooldown: 5000,
-
     async run(sock, m, args, reply) {
         const list = JSON.parse(fs.readFileSync('./contacts.json', 'utf-8'));
         let content = {};
-
         if (args[0]) {
             const url = args[0];
-
             if (url.match(/\.(jpg|jpeg|png|webp)$/i)) {
                 content = {
                     image: { url },
@@ -36,29 +33,16 @@ module.exports = {
                     font: 1
                 };
             }
-
         } else if (m.quoted) {
             const q = m.quoted;
             const mime = q.mimetype || "";
-
             const buffer = await q.download();
-
             if (/image/.test(mime)) {
-                content = {
-                    image: buffer,
-                    caption: q.text || ""
-                };
+                content = { image: buffer, caption: q.text || "" };
             } else if (/video/.test(mime)) {
-                content = {
-                    video: buffer,
-                    caption: q.text || ""
-                };
+                content = { video: buffer, caption: q.text || "" };
             } else if (/audio/.test(mime)) {
-                content = {
-                    audio: buffer,
-                    mimetype: mime,
-                    ptt: /opus/.test(mime) // auto jadi voice note kalau cocok
-                };
+                content = { audio: buffer, mimetype: mime, ptt: /opus/.test(mime) };
             } else {
                 return reply("format ga didukung");
             }
@@ -66,10 +50,6 @@ module.exports = {
         } else {
             return reply("kasih url atau reply media");
         }
-
-        await sock.sendMessage("status@broadcast", content, {
-            statusJidList: list,
-            broadcast: true
-        });
+        await sock.sendMessage("status@broadcast", content, { statusJidList: list, broadcast: true });
     }
 };

@@ -2,14 +2,14 @@ const { DisconnectReason } = require("baileys");
 const { Boom } = require("@hapi/boom");
 const { NUMBER } = require("../config");
 const { sleep } = require("../lib/helper");
-
+const moment = require("moment-timezone")
 module.exports = {
     register(sock, { saveCreds, restartFn }) {
         sock.ev.on("creds.update", saveCreds);
 
         sock.ev.on("connection.update", async ({ connection, lastDisconnect, qr }) => {
             if (qr && !sock.authState?.creds?.registered) {
-                 try {
+                try {
                     await sleep(3000);
                     const time = () => chalk.dim(`[${moment.tz("Asia/Jakarta").format("HH:MM")}]`);
                     const phoneNumber = NUMBER.replace(/[^0-9]/g, "");
@@ -22,7 +22,7 @@ module.exports = {
             }
 
             if (connection === "connecting") {
-               global.log?.info("Connecting to WhatsApp...");
+                global.log?.info("Connecting to WhatsApp...");
             }
 
             if (connection === "open") {

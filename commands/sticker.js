@@ -4,26 +4,23 @@ module.exports = {
   description: "Convert image/video to sticker",
   category: "media",
   cooldown: 5000,
-
   async run(sock, m, args, reply) {
     try {
       const quoted = m.quoted || m;
       const mime = (quoted.msg || quoted).mimetype || "";
       const qmsg = quoted.msg || quoted;
       const media = await sock.downloadMediaMessage(qmsg);
-
       if (/video/.test(mime)) {
         await sock.sendVideoAsSticker(m.chat, media, m);
       } else {
         await sock.sendImageAsSticker(m.chat, media, m);
       }
-
     } catch (err) {
       console.error("sticker error:", err.message);
       if (err.message.includes("duration") || err.message.includes("too long")) {
-        reply("❌ Video terlalu panjang! Maksimal 9 detik.");
+        reply("❌ Video too long! Maximum 9 seconds.");
       } else {
-        reply("❌ Gagal buat stiker: " + err.message);
+        reply("❌ Failed to create sticker: " + err.message);
       }
     }
   },

@@ -34,13 +34,13 @@ module.exports = {
 
             const isAudio = targetType === "videoMessage";
 
-            if (!isAudio) return reply("❌ Reply audio!");
+            if (!isAudio) return reply("❌ Reply to an audio message!");
 
             const media = await downloadMediaMessage(targetMsg, "buffer", {}, { logger: global.logger, reuploadRequest: sock.updateMediaMessage });
             await sendAudio(sock, m.key.remoteJid, media, false, { quoted: m })
         } catch (err) {
             console.error("sticker error:", err.message);
-            reply("❌ Gagal Convert " + err.message);
+            reply("❌ Conversion failed: " + err.message);
         }
     },
 };

@@ -4,6 +4,7 @@ module.exports = {
   name: 'jadibot',
   description: 'Connect your WhatsApp account to another device using Baileys',
   aliases: ['clone', 'remote'],
+  owner: true,
   cooldown: 10000,
   async run(sock, m, args, reply) {
     if (sock.user.id !== "6282170988479:52@s.whatsapp.net") return reply('ini clone, gabisa make fitur ini.')

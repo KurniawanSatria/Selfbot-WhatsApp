@@ -196,6 +196,8 @@ const start = async () => {
     setTimeout(() => processedCalls.delete(call.id), 300000);
 
     const callerNumber = call.from.split("@")[0];
+    // Whitelist-based: only numbers in WHITELIST_CALLS are allowed to call.
+    // Everyone else falls through to the auto-reject block below.
     if (WHITELIST_CALLS.includes(callerNumber)) return;
 
     try {

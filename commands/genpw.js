@@ -25,8 +25,8 @@ function genPW(length = 8) {
 }
 
 module.exports = {
-    name: "genpw",
-    aliases: [""],
+    name: "generatepassword",
+    aliases: ["genpw","pw"],
     description: "Generate a random password",
     category: "tools",
     cooldown: 5000,

@@ -1,5 +1,8 @@
 'use strict';
 
+// Make binaries in the bot volume (e.g. yt-dlp) reachable from child_process/shell.
+process.env.PATH = `/home/container:${process.env.PATH || ""}`;
+
 const { spawn } = require('child_process');
 const { join } = require('path');
 const chalk = require('chalk');
