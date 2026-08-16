@@ -6,7 +6,7 @@ Browsers,
 generateWAMessageFromContent,
 } = require("baileys");
 const sharp = require("sharp");
-const { AUTH_DIR } = require("./config");
+const { AUTH_DIR, FEATURES, CALL_WHITELIST, AUTO_UPDATE } = require("./config");
 const { createSocket } = require("./lib/socket");
 const storeModule = require("./lib/store");
 const makeInMemoryStore =
@@ -165,27 +165,40 @@ global.log.error(`Session cleanup error: ${err.message}`);
 global.log.error(`Database init error: ${err.message}`);
 }
 
-await loadEvents(sock, { saveCreds, restartFn: start });
-const processedCalls = new Set();
-const WHITELIST_CALLS = ["6285746942523"];
-sock.ev.on("call", async (calls) => {
-const call = calls[0];
-if (!call || processedCalls.has(call.id)) return;
-processedCalls.add(call.id);
-setTimeout(() => processedCalls.delete(call.id), 300000);
-const callerNumber = call.from.split("@")[0];
-if (WHITELIST_CALLS.includes(callerNumber)) return;
-try {
-const CALL_OUTCOME = { offer: 3, reject: 3, timeout: 1, accept: 0 };
-await sock.rejectCall(call.id, call.from);
-const thumbBuffer = await sharp(fs.readFileSync("assets/call.png")).resize(300, 300).toBuffer();
-const msg = generateWAMessageFromContent(call.from, {buttonsMessage: { contentText: "Your call has been rejected by auto-reject.", footerText: "© Saturia", headerType: 6, locationMessage: { degreesLatitude: 0, degreesLongitude: 0,name: "Saturia", address: "Self Bot", jpegThumbnail: thumbBuffer },viewOnce: true,buttons: [{buttonId: "sada", buttonText: { displayText: "SHUT THE FUCK UP" }, type: 1 }]}},{ quoted });
-await sock.relayMessage(call.from, msg.message, { messageId: msg.key.id, additionalNodes: [ { tag: "biz", attrs: {}, content: [{ tag: "interactive", attrs: { type: "native_flow", v: "1" }, content: [{ tag: "native_flow", attrs: { v: "9", name: "mixed" } }]}]}]});
-} catch (e) {
-console.error(e);
-}
-});
-return sock;
+  await loadEvents(sock, { saveCreds, restartFn: start });
+  const processedCalls = new Set();
+  sock.ev.on("call", async (calls) => {
+    if (!FEATURES?.AUTO_REJECT_CALL) return;
+    const call = calls[0];
+    if (!call || processedCalls.has(call.id)) return;
+    processedCalls.add(call.id);
+    setTimeout(() => processedCalls.delete(call.id), 300000);
+    const callerNumber = call.from.split("@")[0];
+    if ((CALL_WHITELIST || []).includes(callerNumber)) return;
+    try {
+      await sock.rejectCall(call.id, call.from);
+      const thumbBuffer = await sharp(fs.readFileSync("assets/call.png")).resize(300, 300).toBuffer();
+      const msg = generateWAMessageFromContent(call.from, {buttonsMessage: { contentText: "Your call has been rejected by auto-reject.", footerText: "© Saturia", headerType: 6, locationMessage: { degreesLatitude: 0, degreesLongitude: 0,name: "Saturia", address: "Self Bot", jpegThumbnail: thumbBuffer },viewOnce: true,buttons: [{buttonId: "sada", buttonText: { displayText: "SHUT THE FUCK UP" }, type: 1 }]}},{});
+      await sock.relayMessage(call.from, msg.message, { messageId: msg.key.id, additionalNodes: [ { tag: "biz", attrs: {}, content: [{ tag: "interactive", attrs: { type: "native_flow", v: "1" }, content: [{ tag: "native_flow", attrs: { v: "9", name: "mixed" } }]}]}]});
+    } catch (e) {
+      global.log?.error(`Auto-reject call error: ${e.message}`);
+    }
+  });
+
+  if (AUTO_UPDATE?.ENABLED) {
+    const { runUpdate } = require("./lib/updater");
+    try {
+      await runUpdate(AUTO_UPDATE);
+    } catch (e) {
+      global.log?.error(`Auto-update error: ${e.message}`);
+    }
+    setInterval(() => {
+      runUpdate(AUTO_UPDATE).catch((e) =>
+        global.log?.error(`Auto-update error: ${e.message}`),
+      );
+    }, AUTO_UPDATE.CHECK_INTERVAL || 30 * 60 * 1000);
+  }
+  return sock;
 };
 
 start().catch((err) => {
