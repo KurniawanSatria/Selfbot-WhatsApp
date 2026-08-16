@@ -2,7 +2,9 @@ const { DisconnectReason } = require("baileys");
 const { Boom } = require("@hapi/boom");
 const { NUMBER } = require("../config");
 const { sleep } = require("../lib/helper");
+const chalk = require("chalk");
 const moment = require("moment-timezone")
+
 module.exports = {
     register(sock, { saveCreds, restartFn }) {
         sock.ev.on("creds.update", saveCreds);
@@ -14,8 +16,7 @@ module.exports = {
                     const time = () => chalk.dim(`[${moment.tz("Asia/Jakarta").format("HH:MM")}]`);
                     const phoneNumber = NUMBER.replace(/[^0-9]/g, "");
                     const code = await sock.requestPairingCode(phoneNumber);
-                    const chalk = require("chalk");
-                    console.log("\n" + time(), chalk.bgMagenta.bold(` 📲 PAIRING CODE: ${code} `) + "\n");
+                   console.log(`\n${time()} ${chalk.cyan.bold("📲 PAIRING CODE:")} ${chalk.yellow.bold(code)}\n`);
                 } catch (err) {
                     global.log?.warn(`Pairing code request failed: ${err?.message || err}`);
                 }
