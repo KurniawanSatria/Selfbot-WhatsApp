@@ -206,6 +206,9 @@ fs.watchFile(file, () => {
 fs.unwatchFile(file);
 log.reload(`${__filename} updated, restarting...`);
 delete require.cache[file];
-process.send("reset");
-require(file);
+if (typeof process.send === "function") {
+  process.send("reset");
+} else {
+  process.exit(0);
+}
 });
