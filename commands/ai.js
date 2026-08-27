@@ -317,6 +317,45 @@ function safePath(relPath) {
 
 // ── Tool executors ──────────────────────────────────────────────────────────
 
+// Helper to generate human-readable status messages
+function getToolStatusMessage(toolName, args) {
+  switch (toolName) {
+    case "list_files":
+      return `⌁ Listing files in ${args.dir || 'project root'}…`;
+    case "read_file":
+      return `⌁ Reading ${args.file}…`;
+    case "write_file":
+      return `⌁ Writing to ${args.file}…`;
+    case "delete_file":
+      return `⌁ Deleting ${args.path}…`;
+    case "rename_file":
+      return `⌁ Renaming ${args.oldPath} to ${args.newPath}…`;
+    case "get_file_info":
+      return `⌁ Getting info for ${args.file}…`;
+    case "search_in_files":
+      return `⌁ Searching files for "${args.pattern}"…`;
+    case "find_function":
+      return `⌁ Finding function ${args.functionName}…`;
+    case "syntax_check":
+      return `⌁ Checking syntax of ${args.file}…`;
+    case "get_dependencies":
+      return `⌁ Checking project dependencies…`;
+    case "summarize_file":
+      return `⌁ Summarizing ${args.file}…`;
+    case "explain_error":
+      return `⌁ Analyzing error message…`;
+    case "http_request":
+      const method = args.method || "GET";
+      const domain = args.url.match(/https?:\/\/([^\/]+)/)?.[1] || args.url;
+      return `⌁ ${method === "GET" ? "Fetching" : "Posting to"} ${domain}…`;
+    case "execute_command":
+      const cmd = args.command.split(" ")[0];
+      return `⌁ Running ${cmd}…`;
+    default:
+      return `⌁ Processing…`;
+  }
+}
+
 function toolListFiles(dir) {
   const abs = safePath(dir);
   const entries = fs.readdirSync(abs, { withFileTypes: true });
@@ -619,15 +658,13 @@ module.exports = {
         }
 
         // Model wants to call tools
-        const callNames = choice.message.tool_calls
-          .map((c) => c.function.name)
-          .join(", ");
-        await m.reply(`⌁ Using: ${callNames}…`);
-
         for (const call of choice.message.tool_calls) {
+          const toolArgs = JSON.parse(call.function.arguments);
+          const statusMsg = getToolStatusMessage(call.function.name, toolArgs);
+          await m.reply(statusMsg);
+
           let result;
           try {
-            const toolArgs = JSON.parse(call.function.arguments);
             // Async tools
             const asyncTools = ["execute_command", "search_in_files", "find_function", "syntax_check", "http_request"];
             if (asyncTools.includes(call.function.name)) {
