@@ -4,59 +4,57 @@ const { exec } = require("node:child_process");
 const { promisify } = require("node:util");
 const OpenAI = require("openai");
 const util = require("node:util");
-const { downloadContentFromMessage } = require("baileys");
-const APIKEY = process.env.APIKEY;
-const execAsync = promisify(exec);
 const https = require("https");
 const http = require("http");
+const { downloadContentFromMessage } = require("baileys");
+const { Button } = require("../lib/helper");
 
-// Project root (one level up from commands/)
+const APIKEY = process.env.APIKEY;
+const execAsync = promisify(exec);
 const ROOT = path.resolve(__dirname, "..");
 
-const SYSTEM_PROMPT = `You are Saturiaaa, a WhatsApp assistant with full access to the project's source code. Be direct and to the point — no filler, no small talk, no unnecessary preamble. Base answers on facts; if you don't know something or aren't sure, say so instead of guessing. Prioritize being useful over being agreeable — correct the user if they're wrong. Keep a professional tone: no excessive emojis, no forced enthusiasm, no personality theatrics.
+// ── System prompt ───────────────────────────────────────────────────────────
 
-You have tools to read, modify, analyze, and execute in the project:
-- list_files: list files/folders inside a directory
-- read_file: read the content of a file
-- write_file: write (create or overwrite) a file
+const SYSTEM_PROMPT = `You are Saturiaaa, a WhatsApp assistant with full access to the project's source code. Be direct and to the point — no filler, no small talk. Base answers on facts. Correct the user if they're wrong. No excessive emojis or forced enthusiasm.
+
+Available tools:
+- list_files: list files/folders in a directory
+- read_file: read file content
+- write_file: create or overwrite a file
 - delete_file: delete a file or directory
 - rename_file: rename or move a file
-- get_file_info: get file size, modified date, and type
-- search_in_files: search for text/regex across files (like grep)
-- find_function: find where a function is defined in the project
-- syntax_check: validate JavaScript syntax without execution
-- get_dependencies: read package.json and list dependencies
-- summarize_file: generate a concise summary of a file's purpose
-- explain_error: parse error messages and suggest fixes
-- http_request: make HTTP GET/POST requests to external APIs
+- get_file_info: get file metadata (size, date, type)
+- search_in_files: search text/regex across files
+- find_function: find where a function is defined
+- syntax_check: validate JS syntax without running
+- get_dependencies: list dependencies from package.json
+- summarize_file: summarize what a file does
+- explain_error: parse error and suggest fixes
+- http_request: make HTTP GET/POST requests
 - execute_command: run shell commands (npm, git, node, etc.)
+- send_response: send a custom formatted reply (text, button, react, image, video, document, sticker, image_button)
 
-When the user asks you to fix, improve, or modify something:
-1. Read/search files to understand the current state
-2. Check syntax if modifying code
-3. Apply changes by writing files
-4. Execute commands if needed (tests, installs, etc.)
-5. Report what changed, clearly and concisely
+Workflow for code changes:
+1. Read relevant files first
+2. Apply changes via write_file
+3. Run syntax_check after writing
+4. Use execute_command if installs or tests needed
+5. Use send_response for your final reply — choose the format that fits best
 
-After completing all tool calls, respond with a plain text summary. Do NOT wrap your final reply in JSON.`;
+Always use send_response as the last step. Never end with plain text.`;
 
-// ── Tool definitions for the OpenAI tools API ──────────────────────────────
+// ── Tool definitions ────────────────────────────────────────────────────────
 
 const TOOLS = [
   {
     type: "function",
     function: {
       name: "list_files",
-      description:
-        "List files and folders inside a directory relative to the project root.",
+      description: "List files and folders inside a directory relative to the project root.",
       parameters: {
         type: "object",
         properties: {
-          dir: {
-            type: "string",
-            description:
-              "Directory path relative to project root. Use '.' for root.",
-          },
+          dir: { type: "string", description: "Directory path relative to project root. Use '.' for root." },
         },
         required: ["dir"],
       },
@@ -66,16 +64,11 @@ const TOOLS = [
     type: "function",
     function: {
       name: "read_file",
-      description:
-        "Read the full content of a file relative to the project root.",
+      description: "Read the full content of a file relative to the project root.",
       parameters: {
         type: "object",
         properties: {
-          file: {
-            type: "string",
-            description:
-              "File path relative to project root, e.g. 'commands/ai.js'.",
-          },
+          file: { type: "string", description: "File path relative to project root, e.g. 'commands/ai.js'." },
         },
         required: ["file"],
       },
@@ -85,41 +78,14 @@ const TOOLS = [
     type: "function",
     function: {
       name: "write_file",
-      description:
-        "Create or overwrite a file relative to the project root with the given content.",
+      description: "Create or overwrite a file relative to the project root.",
       parameters: {
         type: "object",
         properties: {
-          file: {
-            type: "string",
-            description:
-              "File path relative to project root, e.g. 'commands/ai.js'.",
-          },
-          content: {
-            type: "string",
-            description: "Full content to write to the file.",
-          },
+          file: { type: "string", description: "File path relative to project root." },
+          content: { type: "string", description: "Full content to write." },
         },
         required: ["file", "content"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "execute_command",
-      description:
-        "Execute a shell command in the project root directory. Returns stdout and stderr.",
-      parameters: {
-        type: "object",
-        properties: {
-          command: {
-            type: "string",
-            description:
-              "Shell command to execute, e.g. 'npm install axios', 'git status', 'node --version'.",
-          },
-        },
-        required: ["command"],
       },
     },
   },
@@ -131,10 +97,7 @@ const TOOLS = [
       parameters: {
         type: "object",
         properties: {
-          path: {
-            type: "string",
-            description: "Path to file/directory to delete, e.g. 'tmp/cache.json'.",
-          },
+          path: { type: "string", description: "Path to delete, e.g. 'tmp/cache.json'." },
         },
         required: ["path"],
       },
@@ -148,14 +111,8 @@ const TOOLS = [
       parameters: {
         type: "object",
         properties: {
-          oldPath: {
-            type: "string",
-            description: "Current file path, e.g. 'commands/old.js'.",
-          },
-          newPath: {
-            type: "string",
-            description: "New file path, e.g. 'commands/new.js'.",
-          },
+          oldPath: { type: "string", description: "Current file path." },
+          newPath: { type: "string", description: "New file path." },
         },
         required: ["oldPath", "newPath"],
       },
@@ -165,14 +122,11 @@ const TOOLS = [
     type: "function",
     function: {
       name: "get_file_info",
-      description: "Get metadata about a file (size, modified date, type).",
+      description: "Get metadata about a file: size, modified date, type.",
       parameters: {
         type: "object",
         properties: {
-          file: {
-            type: "string",
-            description: "File path relative to project root.",
-          },
+          file: { type: "string", description: "File path relative to project root." },
         },
         required: ["file"],
       },
@@ -182,18 +136,12 @@ const TOOLS = [
     type: "function",
     function: {
       name: "search_in_files",
-      description: "Search for text/regex pattern across files in the project (like grep).",
+      description: "Search for a text or regex pattern across project files.",
       parameters: {
         type: "object",
         properties: {
-          pattern: {
-            type: "string",
-            description: "Text or regex pattern to search for.",
-          },
-          includePattern: {
-            type: "string",
-            description: "Glob pattern for files to include, e.g. '**/*.js'. Default: all files.",
-          },
+          pattern: { type: "string", description: "Text or regex to search for." },
+          includePattern: { type: "string", description: "Glob pattern for files, e.g. '**/*.js'." },
         },
         required: ["pattern"],
       },
@@ -203,14 +151,11 @@ const TOOLS = [
     type: "function",
     function: {
       name: "find_function",
-      description: "Find where a function is defined in the project by name.",
+      description: "Find where a function is defined across the project.",
       parameters: {
         type: "object",
         properties: {
-          functionName: {
-            type: "string",
-            description: "Name of the function to find, e.g. 'toolExecuteCommand'.",
-          },
+          functionName: { type: "string", description: "Function name to find." },
         },
         required: ["functionName"],
       },
@@ -224,10 +169,7 @@ const TOOLS = [
       parameters: {
         type: "object",
         properties: {
-          file: {
-            type: "string",
-            description: "JS file path to check, e.g. 'commands/ai.js'.",
-          },
+          file: { type: "string", description: "JS file path to check." },
         },
         required: ["file"],
       },
@@ -237,25 +179,19 @@ const TOOLS = [
     type: "function",
     function: {
       name: "get_dependencies",
-      description: "Read package.json and list all dependencies and devDependencies.",
-      parameters: {
-        type: "object",
-        properties: {},
-      },
+      description: "Read package.json and list all dependencies.",
+      parameters: { type: "object", properties: {} },
     },
   },
   {
     type: "function",
     function: {
       name: "summarize_file",
-      description: "Generate a concise summary of what a file does (for large files).",
+      description: "Generate a concise summary of what a file does.",
       parameters: {
         type: "object",
         properties: {
-          file: {
-            type: "string",
-            description: "File path to summarize.",
-          },
+          file: { type: "string", description: "File path to summarize." },
         },
         required: ["file"],
       },
@@ -269,10 +205,7 @@ const TOOLS = [
       parameters: {
         type: "object",
         properties: {
-          error: {
-            type: "string",
-            description: "Full error message or stack trace.",
-          },
+          error: { type: "string", description: "Full error message or stack trace." },
         },
         required: ["error"],
       },
@@ -282,24 +215,64 @@ const TOOLS = [
     type: "function",
     function: {
       name: "http_request",
-      description: "Make HTTP GET or POST request to an external API.",
+      description: "Make an HTTP GET or POST request to an external URL.",
       parameters: {
         type: "object",
         properties: {
-          url: {
-            type: "string",
-            description: "Full URL to request.",
-          },
-          method: {
-            type: "string",
-            description: "HTTP method: GET or POST. Default: GET.",
-          },
-          body: {
-            type: "string",
-            description: "JSON string body for POST requests.",
-          },
+          url: { type: "string", description: "Full URL to request." },
+          method: { type: "string", description: "HTTP method: GET or POST. Default: GET." },
+          body: { type: "string", description: "JSON string body for POST requests." },
         },
         required: ["url"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "execute_command",
+      description: "Execute a shell command in the project root. Returns stdout and stderr.",
+      parameters: {
+        type: "object",
+        properties: {
+          command: { type: "string", description: "Command to run, e.g. 'npm install axios'." },
+        },
+        required: ["command"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "send_response",
+      description: "Send the final response to the user. Always use this as the last step — never end with plain text. Choose the format that best fits the reply.",
+      parameters: {
+        type: "object",
+        properties: {
+          type: {
+            type: "string",
+            enum: ["text", "button", "react", "image", "video", "document", "sticker", "image_button"],
+            description: "Response type: 'text', 'button', 'react', 'image', 'video', 'document', 'sticker', or 'image_button' (image with buttons below).",
+          },
+          text: { type: "string", description: "Message text/caption. Required for 'text', 'button', 'image', 'video', 'document', 'image_button'." },
+          footer: { type: "string", description: "Footer text for 'button' or 'image_button'." },
+          buttons: {
+            type: "array",
+            description: "Buttons for 'button' or 'image_button'. Each: { label: string, id: string }",
+            items: {
+              type: "object",
+              properties: {
+                label: { type: "string" },
+                id: { type: "string" },
+              },
+            },
+          },
+          emoji: { type: "string", description: "Emoji for 'react' type, e.g. '✓', '❌'." },
+          url: { type: "string", description: "URL for 'image', 'video', 'document', 'sticker', or 'image_button'. Can be http URL or file path." },
+          filename: { type: "string", description: "Filename for 'document' type, e.g. 'report.pdf'." },
+          mimetype: { type: "string", description: "MIME type for 'document', e.g. 'application/pdf'." },
+        },
+        required: ["type"],
       },
     },
   },
@@ -315,55 +288,39 @@ function safePath(relPath) {
   return abs;
 }
 
-// ── Tool executors ──────────────────────────────────────────────────────────
+// ── Status messages ─────────────────────────────────────────────────────────
 
-// Helper to generate human-readable status messages
-function getToolStatusMessage(toolName, args) {
-  switch (toolName) {
-    case "list_files":
-      return `⌁ Listing files in ${args.dir || 'project root'}…`;
-    case "read_file":
-      return `⌁ Reading ${args.file}…`;
-    case "write_file":
-      return `⌁ Writing to ${args.file}…`;
-    case "delete_file":
-      return `⌁ Deleting ${args.path}…`;
-    case "rename_file":
-      return `⌁ Renaming ${args.oldPath} to ${args.newPath}…`;
-    case "get_file_info":
-      return `⌁ Getting info for ${args.file}…`;
-    case "search_in_files":
-      return `⌁ Searching files for "${args.pattern}"…`;
-    case "find_function":
-      return `⌁ Finding function ${args.functionName}…`;
-    case "syntax_check":
-      return `⌁ Checking syntax of ${args.file}…`;
-    case "get_dependencies":
-      return `⌁ Checking project dependencies…`;
-    case "summarize_file":
-      return `⌁ Summarizing ${args.file}…`;
-    case "explain_error":
-      return `⌁ Analyzing error message…`;
-    case "http_request":
+function getStatusMessage(name, args) {
+  switch (name) {
+    case "list_files":       return `⌁ Listing files in ${args.dir || "project root"}…`;
+    case "read_file":        return `⌁ Reading ${args.file}…`;
+    case "write_file":       return `⌁ Writing ${args.file}…`;
+    case "delete_file":      return `⌁ Deleting ${args.path}…`;
+    case "rename_file":      return `⌁ Renaming ${args.oldPath} to ${args.newPath}…`;
+    case "get_file_info":    return `⌁ Getting info for ${args.file}…`;
+    case "search_in_files":  return `⌁ Searching files for "${args.pattern}"…`;
+    case "find_function":    return `⌁ Finding function ${args.functionName}…`;
+    case "syntax_check":     return `⌁ Checking syntax of ${args.file}…`;
+    case "get_dependencies": return `⌁ Checking project dependencies…`;
+    case "summarize_file":   return `⌁ Summarizing ${args.file}…`;
+    case "explain_error":    return `⌁ Analyzing error…`;
+    case "execute_command":  return `⌁ Running ${args.command}…`;
+    case "http_request": {
       const method = args.method || "GET";
-      const domain = args.url.match(/https?:\/\/([^\/]+)/)?.[1] || args.url;
-      return `⌁ ${method === "GET" ? "Fetching" : "Posting to"} ${domain}…`;
-    case "execute_command":
-      const cmd = args.command.split(" ")[0];
-      return `⌁ Running ${cmd}…`;
-    default:
-      return `⌁ Processing…`;
+      const domain = args.url.match(/https?:\/\/([^/]+)/)?.[1] || args.url;
+      return `⌁ ${method === "POST" ? "Posting to" : "Fetching"} ${domain}…`;
+    }
+    case "send_response":    return null; // silent — it IS the response
+    default:                 return `⌁ Processing…`;
   }
 }
+
+// ── Tool implementations ────────────────────────────────────────────────────
 
 function toolListFiles(dir) {
   const abs = safePath(dir);
   const entries = fs.readdirSync(abs, { withFileTypes: true });
-  return (
-    entries
-      .map((e) => (e.isDirectory() ? `[dir]  ${e.name}` : `[file] ${e.name}`))
-      .join("\n") || "(empty directory)"
-  );
+  return entries.map(e => (e.isDirectory() ? `[dir]  ${e.name}` : `[file] ${e.name}`)).join("\n") || "(empty)";
 }
 
 function toolReadFile(file) {
@@ -379,33 +336,13 @@ function toolWriteFile(file, content) {
   return `✓ Written: ${file}`;
 }
 
-async function toolExecuteCommand(command) {
-  try {
-    const { stdout, stderr } = await execAsync(command, {
-      cwd: ROOT,
-      timeout: 30000,
-      maxBuffer: 1024 * 1024,
-    });
-    let output = "";
-    if (stdout) output += `stdout:\n${stdout.trim()}\n`;
-    if (stderr) output += `stderr:\n${stderr.trim()}`;
-    return output.trim() || "✓ Command executed successfully (no output)";
-  } catch (err) {
-    return `Error: ${err.message}\nstdout: ${err.stdout || ""}\nstderr: ${err.stderr || ""}`;
-  }
-}
-
 function toolDeleteFile(filePath) {
   const abs = safePath(filePath);
-  if (!fs.existsSync(abs)) throw new Error(`Path not found: "${filePath}"`);
-  const stat = fs.statSync(abs);
-  if (stat.isDirectory()) {
-    fs.rmSync(abs, { recursive: true, force: true });
-    return `✓ Deleted directory: ${filePath}`;
-  } else {
-    fs.unlinkSync(abs);
-    return `✓ Deleted file: ${filePath}`;
-  }
+  if (!fs.existsSync(abs)) throw new Error(`Not found: "${filePath}"`);
+  fs.statSync(abs).isDirectory()
+    ? fs.rmSync(abs, { recursive: true, force: true })
+    : fs.unlinkSync(abs);
+  return `✓ Deleted: ${filePath}`;
 }
 
 function toolRenameFile(oldPath, newPath) {
@@ -419,47 +356,31 @@ function toolRenameFile(oldPath, newPath) {
 
 function toolGetFileInfo(file) {
   const abs = safePath(file);
-  if (!fs.existsSync(abs)) throw new Error(`File not found: "${file}"`);
-  const stat = fs.statSync(abs);
-  return JSON.stringify({
-    path: file,
-    size: `${(stat.size / 1024).toFixed(2)} KB`,
-    modified: stat.mtime.toISOString(),
-    type: stat.isDirectory() ? "directory" : "file",
-  }, null, 2);
+  if (!fs.existsSync(abs)) throw new Error(`Not found: "${file}"`);
+  const s = fs.statSync(abs);
+  return JSON.stringify({ path: file, size: `${(s.size / 1024).toFixed(2)} KB`, modified: s.mtime.toISOString(), type: s.isDirectory() ? "directory" : "file" }, null, 2);
 }
 
 async function toolSearchInFiles(pattern, includePattern = "**/*.js") {
   try {
-    // Use ripgrep if available, fallback to findstr on Windows
-    const isWindows = process.platform === "win32";
-    let cmd;
-    if (isWindows) {
-      cmd = `findstr /s /i /n "${pattern}" ${includePattern.replace("**", "*")}`;
-    } else {
-      cmd = `grep -rn "${pattern}" --include="${includePattern}" .`;
-    }
+    const cmd = process.platform === "win32"
+      ? `findstr /s /i /n "${pattern}" ${includePattern.replace("**", "*")}`
+      : `grep -rn "${pattern}" --include="${includePattern}" .`;
     const { stdout } = await execAsync(cmd, { cwd: ROOT, maxBuffer: 2 * 1024 * 1024 });
-    return stdout.trim() || `No matches found for: "${pattern}"`;
+    return stdout.trim() || `No matches for: "${pattern}"`;
   } catch (err) {
-    if (err.code === 1) return `No matches found for: "${pattern}"`;
-    return `Error searching: ${err.message}`;
+    return err.code === 1 ? `No matches for: "${pattern}"` : `Error: ${err.message}`;
   }
 }
 
 async function toolFindFunction(functionName) {
-  try {
-    const pattern = `(function\\s+${functionName}|const\\s+${functionName}\\s*=|${functionName}\\s*:\\s*function|${functionName}\\s*\\()`;
-    const result = await toolSearchInFiles(pattern, "**/*.js");
-    return result;
-  } catch (err) {
-    return `Error: ${err.message}`;
-  }
+  const pattern = `(function\\s+${functionName}|const\\s+${functionName}\\s*=|${functionName}\\s*:\\s*function|${functionName}\\s*\\()`;
+  return toolSearchInFiles(pattern, "**/*.js");
 }
 
 async function toolSyntaxCheck(file) {
   const abs = safePath(file);
-  if (!fs.existsSync(abs)) throw new Error(`File not found: "${file}"`);
+  if (!fs.existsSync(abs)) throw new Error(`Not found: "${file}"`);
   try {
     await execAsync(`node --check "${abs}"`, { cwd: ROOT });
     return `✓ Syntax valid: ${file}`;
@@ -469,159 +390,177 @@ async function toolSyntaxCheck(file) {
 }
 
 function toolGetDependencies() {
-  const pkgPath = path.join(ROOT, "package.json");
-  if (!fs.existsSync(pkgPath)) throw new Error("package.json not found");
-  const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
-  return JSON.stringify({
-    dependencies: pkg.dependencies || {},
-    devDependencies: pkg.devDependencies || {},
-  }, null, 2);
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
+  return JSON.stringify({ dependencies: pkg.dependencies || {}, devDependencies: pkg.devDependencies || {} }, null, 2);
 }
 
 function toolSummarizeFile(file) {
   const abs = safePath(file);
-  if (!fs.existsSync(abs)) throw new Error(`File not found: "${file}"`);
-  const content = fs.readFileSync(abs, "utf8");
-  const lines = content.split("\n");
-  const functions = [];
-  const exports = [];
-  
-  lines.forEach((line, i) => {
-    if (/(?:function|const|let|var)\s+\w+/.test(line)) {
-      functions.push(`Line ${i + 1}: ${line.trim().substring(0, 60)}`);
-    }
-    if (/module\.exports|export/.test(line)) {
-      exports.push(`Line ${i + 1}: ${line.trim().substring(0, 60)}`);
-    }
+  if (!fs.existsSync(abs)) throw new Error(`Not found: "${file}"`);
+  const lines = fs.readFileSync(abs, "utf8").split("\n");
+  const fns = [], exps = [];
+  lines.forEach((l, i) => {
+    if (/(?:async\s+)?function\s+\w+|const\s+\w+\s*=\s*(?:async\s+)?\(/.test(l)) fns.push(`L${i + 1}: ${l.trim().slice(0, 70)}`);
+    if (/module\.exports|^export/.test(l)) exps.push(`L${i + 1}: ${l.trim().slice(0, 70)}`);
   });
-  
-  return `File: ${file}\nLines: ${lines.length}\nFunctions/vars: ${functions.length}\nExports: ${exports.length}\n\nKey functions:\n${functions.slice(0, 5).join("\n")}\n\nExports:\n${exports.slice(0, 3).join("\n")}`;
+  return `${file} — ${lines.length} lines\n\nFunctions (${fns.length}):\n${fns.slice(0, 8).join("\n")}\n\nExports (${exps.length}):\n${exps.slice(0, 4).join("\n")}`;
 }
 
 function toolExplainError(error) {
-  const suggestions = [];
-  
-  if (/cannot find module/i.test(error)) {
-    suggestions.push("Missing dependency. Run: npm install <module-name>");
-  }
-  if (/unexpected token/i.test(error)) {
-    suggestions.push("Syntax error. Check for missing brackets, quotes, or semicolons.");
-  }
-  if (/is not defined/i.test(error)) {
-    suggestions.push("Variable not declared. Check if it's imported or defined.");
-  }
-  if (/permission denied|eacces/i.test(error)) {
-    suggestions.push("Permission error. Try running with elevated privileges or check file permissions.");
-  }
-  if (/port.*already in use/i.test(error)) {
-    suggestions.push("Port conflict. Stop the other process or use a different port.");
-  }
-  if (/timeout|etimedout/i.test(error)) {
-    suggestions.push("Network timeout. Check internet connection or increase timeout value.");
-  }
-  
-  return `Error Analysis:\n${error.substring(0, 500)}\n\nSuggestions:\n${suggestions.length ? suggestions.join("\n") : "No specific fix identified. Check stack trace for more details."}`;
+  const fixes = [];
+  if (/cannot find module/i.test(error))       fixes.push("Missing module → npm install <name>");
+  if (/unexpected token/i.test(error))          fixes.push("Syntax error → check brackets/quotes/semicolons");
+  if (/is not defined/i.test(error))            fixes.push("Undeclared variable → check imports/declarations");
+  if (/permission denied|eacces/i.test(error))  fixes.push("Permission error → check file permissions");
+  if (/port.*in use/i.test(error))              fixes.push("Port conflict → stop other process or change port");
+  if (/timeout|etimedout/i.test(error))         fixes.push("Timeout → check connection or increase timeout");
+  return `Error:\n${error.slice(0, 500)}\n\nSuggestions:\n${fixes.length ? fixes.join("\n") : "No specific fix — check the stack trace."}`;
 }
 
 async function toolHttpRequest(url, method = "GET", body = null) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const lib = url.startsWith("https") ? https : http;
-    const options = {
-      method,
-      headers: method === "POST" ? { "Content-Type": "application/json" } : {},
-    };
-    
-    const req = lib.request(url, options, (res) => {
+    const req = lib.request(url, { method, headers: method === "POST" ? { "Content-Type": "application/json" } : {} }, (res) => {
       let data = "";
-      res.on("data", (chunk) => (data += chunk));
-      res.on("end", () => {
-        resolve(`Status: ${res.statusCode}\n\n${data.substring(0, 2000)}`);
-      });
+      res.on("data", c => (data += c));
+      res.on("end", () => resolve(`Status: ${res.statusCode}\n\n${data.slice(0, 2000)}`));
     });
-    
-    req.on("error", (err) => resolve(`Request failed: ${err.message}`));
+    req.on("error", err => resolve(`Request failed: ${err.message}`));
     if (body && method === "POST") req.write(body);
     req.end();
   });
 }
 
-function executeTool(name, args) {
-  switch (name) {
-    case "list_files":
-      return toolListFiles(args.dir);
-    case "read_file":
-      return toolReadFile(args.file);
-    case "write_file":
-      return toolWriteFile(args.file, args.content);
-    case "delete_file":
-      return toolDeleteFile(args.path);
-    case "rename_file":
-      return toolRenameFile(args.oldPath, args.newPath);
-    case "get_file_info":
-      return toolGetFileInfo(args.file);
-    case "search_in_files":
-      return toolSearchInFiles(args.pattern, args.includePattern);
-    case "find_function":
-      return toolFindFunction(args.functionName);
-    case "syntax_check":
-      return toolSyntaxCheck(args.file);
-    case "get_dependencies":
-      return toolGetDependencies();
-    case "summarize_file":
-      return toolSummarizeFile(args.file);
-    case "explain_error":
-      return toolExplainError(args.error);
-    case "http_request":
-      return toolHttpRequest(args.url, args.method, args.body);
-    case "execute_command":
-      return toolExecuteCommand(args.command);
-    default:
-      throw new Error(`Unknown tool: ${name}`);
+async function toolExecuteCommand(command) {
+  try {
+    const { stdout, stderr } = await execAsync(command, { cwd: ROOT, timeout: 30000, maxBuffer: 1024 * 1024 });
+    let out = "";
+    if (stdout) out += `stdout:\n${stdout.trim()}\n`;
+    if (stderr) out += `stderr:\n${stderr.trim()}`;
+    return out.trim() || "✓ Done (no output)";
+  } catch (err) {
+    return `Error: ${err.message}\n${err.stdout || ""}${err.stderr || ""}`;
   }
 }
 
-// ── Main agentic loop ───────────────────────────────────────────────────────
+async function toolSendResponse(sock, m, args) {
+  const { type, text, footer, buttons, emoji, url, filename, mimetype } = args;
+
+  try {
+    // React only
+    if (type === "react") {
+      await m.react(emoji || "✓");
+      return "✓ Reacted";
+    }
+
+    // Plain text button
+    if (type === "button" && Array.isArray(buttons) && buttons.length > 0) {
+      const btn = new Button(sock).setBody(text || "").setFooter(footer || "");
+      for (const b of buttons) btn.addReply(b.label, b.id);
+      await btn.send(m.chat, { quoted: m });
+      return "✓ Sent button message";
+    }
+
+    // Image
+    if (type === "image" && url) {
+      await sock.sendMessage(m.chat, { image: { url }, caption: text || "" }, { quoted: m });
+      return "✓ Sent image";
+    }
+
+    // Image with buttons
+    if (type === "image_button" && url && Array.isArray(buttons) && buttons.length > 0) {
+      const btn = new Button(sock).setBody(text || "").setFooter(footer || "").setImage(url);
+      for (const b of buttons) btn.addReply(b.label, b.id);
+      await btn.send(m.chat, { quoted: m });
+      return "✓ Sent image with buttons";
+    }
+
+    // Video
+    if (type === "video" && url) {
+      await sock.sendMessage(m.chat, { video: { url }, caption: text || "" }, { quoted: m });
+      return "✓ Sent video";
+    }
+
+    // Document
+    if (type === "document" && url) {
+      await sock.sendMessage(m.chat, {
+        document: { url },
+        fileName: filename || "document",
+        mimetype: mimetype || "application/octet-stream",
+        caption: text || "",
+      }, { quoted: m });
+      return "✓ Sent document";
+    }
+
+    // Sticker
+    if (type === "sticker" && url) {
+      await sock.sendMessage(m.chat, { sticker: { url } }, { quoted: m });
+      return "✓ Sent sticker";
+    }
+
+    // Default: plain text
+    await m.reply(text || "Done.");
+    return "✓ Sent text";
+  } catch (err) {
+    return `Error sending response: ${err.message}`;
+  }
+}
+
+// ── Tool dispatcher ─────────────────────────────────────────────────────────
+
+async function executeTool(name, args, sock, m) {
+  switch (name) {
+    case "list_files":       return toolListFiles(args.dir);
+    case "read_file":        return toolReadFile(args.file);
+    case "write_file":       return toolWriteFile(args.file, args.content);
+    case "delete_file":      return toolDeleteFile(args.path);
+    case "rename_file":      return toolRenameFile(args.oldPath, args.newPath);
+    case "get_file_info":    return toolGetFileInfo(args.file);
+    case "search_in_files":  return toolSearchInFiles(args.pattern, args.includePattern);
+    case "find_function":    return toolFindFunction(args.functionName);
+    case "syntax_check":     return toolSyntaxCheck(args.file);
+    case "get_dependencies": return toolGetDependencies();
+    case "summarize_file":   return toolSummarizeFile(args.file);
+    case "explain_error":    return toolExplainError(args.error);
+    case "http_request":     return toolHttpRequest(args.url, args.method, args.body);
+    case "execute_command":  return toolExecuteCommand(args.command);
+    case "send_response":    return toolSendResponse(sock, m, args);
+    default: throw new Error(`Unknown tool: ${name}`);
+  }
+}
+
+// ── Command entry point ─────────────────────────────────────────────────────
 
 module.exports = {
   name: "ai",
   aliases: ["ask"],
-  description: "AI-powered assistant with project file access",
+  description: "AI-powered assistant with full project access",
   category: "ai",
   cooldown: 5000,
 
   async run(sock, m, args) {
-    const prompt = args && args.length > 0 ? args.join(" ") : "";
+    const prompt = args?.length > 0 ? args.join(" ") : "";
     const directImage = m.message?.imageMessage;
-    const quotedImage =
-      m.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
+    const quotedImage = m.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
     const imageMessage = directImage || quotedImage;
 
-    if (!prompt && !imageMessage)
-      return m.reply("⌁ Enter a prompt to continue.");
+    if (!prompt && !imageMessage) return m.reply("⌁ Enter a prompt to continue.");
 
     await sock.sendPresenceUpdate("composing", m.key.remoteJid);
 
-    const client = new OpenAI({
-      apiKey: APIKEY,
-      baseURL: "https://9router.saturia.codes/v1",
-    });
+    const client = new OpenAI({ apiKey: APIKEY, baseURL: "https://9router.saturia.codes/v1" });
 
     try {
-      // Build initial user content (supports vision)
       let userContent;
       if (imageMessage) {
         const stream = await downloadContentFromMessage(imageMessage, "image");
         let buffer = Buffer.from([]);
-        for await (const chunk of stream)
-          buffer = Buffer.concat([buffer, chunk]);
+        for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
         const base64 = buffer.toString("base64");
         const mimeType = imageMessage.mimetype || "image/jpeg";
         userContent = [
           { type: "text", text: prompt || "Describe this image." },
-          {
-            type: "image_url",
-            image_url: { url: `data:${mimeType};base64,${base64}` },
-          },
+          { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64}` } },
         ];
       } else {
         userContent = prompt;
@@ -632,13 +571,14 @@ module.exports = {
         { role: "user", content: userContent },
       ];
 
-      // Agentic loop — keep going until the model stops calling tools
-      const MAX_ITERATIONS = 10;
+      const MAX_ITERATIONS = 20;
+      let finalSent = false;
+
       for (let i = 0; i < MAX_ITERATIONS; i++) {
         await sock.sendPresenceUpdate("composing", m.key.remoteJid);
 
         const res = await client.chat.completions.create({
-          model: "Agent",
+          model: "kr/claude-sonnet-4.5",
           messages,
           tools: TOOLS,
           tool_choice: "auto",
@@ -647,45 +587,34 @@ module.exports = {
         const choice = res.choices[0];
         messages.push(choice.message);
 
-        // Model is done — send final reply
-        if (
-          choice.finish_reason === "stop" ||
-          !choice.message.tool_calls?.length
-        ) {
-          const finalText = choice.message.content?.trim() || "Done.";
-          await m.reply(finalText);
+        // No more tool calls — fallback reply if AI forgot to use send_response
+        if (choice.finish_reason === "stop" || !choice.message.tool_calls?.length) {
+          if (!finalSent) await m.reply(choice.message.content?.trim() || "Done.");
           return;
         }
 
-        // Model wants to call tools
         for (const call of choice.message.tool_calls) {
           const toolArgs = JSON.parse(call.function.arguments);
-          const statusMsg = getToolStatusMessage(call.function.name, toolArgs);
-          await m.reply(statusMsg);
+
+          // Show status (skip for send_response — it speaks for itself)
+          const status = getStatusMessage(call.function.name, toolArgs);
+          if (status) await m.reply(status);
 
           let result;
           try {
-            // Async tools
-            const asyncTools = ["execute_command", "search_in_files", "find_function", "syntax_check", "http_request"];
-            if (asyncTools.includes(call.function.name)) {
-              result = await executeTool(call.function.name, toolArgs);
-            } else {
-              result = executeTool(call.function.name, toolArgs);
-            }
+            result = await executeTool(call.function.name, toolArgs, sock, m);
+            if (call.function.name === "send_response") finalSent = true;
           } catch (err) {
             result = `Error: ${err.message}`;
           }
 
-          messages.push({
-            role: "tool",
-            tool_call_id: call.id,
-            content: String(result),
-          });
+          messages.push({ role: "tool", tool_call_id: call.id, content: String(result) });
         }
+
+        if (finalSent) return;
       }
 
-      // Exceeded max iterations
-      await m.reply("⌁ Reached maximum tool iterations. Try a more specific request.");
+      if (!finalSent) await m.reply("⌁ Reached max iterations.");
     } catch (e) {
       console.error(util.format(e));
       await m.reply("╰─ Request failed unexpectedly.");
