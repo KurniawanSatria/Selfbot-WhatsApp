@@ -578,7 +578,7 @@ module.exports = {
         await sock.sendPresenceUpdate("composing", m.key.remoteJid);
 
         const res = await client.chat.completions.create({
-          model: "kr/claude-sonnet-4.5",
+          model: "Agent",
           messages,
           tools: TOOLS,
           tool_choice: "auto",
