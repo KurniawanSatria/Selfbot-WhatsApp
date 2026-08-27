@@ -1,0 +1,17 @@
+{
+  "allowedNumbers": [],
+  "allowedChats": [],
+  "settings": {
+    "autoAllowGroups": false,
+    "autoAllowContacts": false
+  },
+  "sessions": {},
+  "bannedChats": [
+    {
+      "chatId": "120363140569875100@g.us",
+      "chatName": "Saturia.",
+      "chatType": "group",
+      "bannedAt": "2026-08-19T03:40:57.303Z"
+    }
+  ]
+}

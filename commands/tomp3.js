@@ -1,0 +1,64 @@
+const { downloadMediaMessage, getContentType } = require("baileys");
+const { sendAudio } = require("../lib/helper");
+
+module.exports = {
+  name: "topmp3",
+  aliases: ["toaud"],
+  description: "Convert a replied video into MP3 audio",
+  category: "Media",
+  cooldown: 5000,
+
+  async run(sock, m, args, reply) {
+    try {
+      const ctx = m.message?.extendedTextMessage?.contextInfo;
+
+      let targetMsg;
+      let targetType;
+
+      if (ctx?.quotedMessage) {
+        targetMsg = {
+          key: {
+            remoteJid: m.key.remoteJid,
+            fromMe: false,
+            id: ctx.stanzaId,
+            participant: ctx.participant,
+          },
+          message: ctx.quotedMessage,
+        };
+
+        targetType = getContentType(ctx.quotedMessage);
+      } else {
+        targetMsg = m;
+        targetType = getContentType(m.message);
+      }
+
+      if (targetType !== "videoMessage") {
+        return reply("╰─ Reply to a video message to extract its audio.");
+      }
+
+      await m.react("⏳");
+
+      const media = await downloadMediaMessage(
+        targetMsg,
+        "buffer",
+        {},
+        {
+          logger: global.logger,
+          reuploadRequest: sock.updateMediaMessage,
+        },
+      );
+
+      if (!media) {
+        throw new Error("Media payload is empty.");
+      }
+
+      await sendAudio(sock, m.key.remoteJid, media, false, { quoted: m });
+
+      await m.react("✓");
+    } catch (err) {
+      console.error("[TOPMP3 ERROR]", err);
+      await m.react("×").catch(() => {});
+      await reply(`╰─ Conversion failed: ${err.message}`);
+    }
+  },
+};

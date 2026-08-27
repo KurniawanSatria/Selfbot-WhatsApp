@@ -1,0 +1,15 @@
+session
+tmp
+.vscode
+contacts.json
+package-lock.json
+.idea
+*.log
+*.tmp
+*.bak
+*.swp
+.DS_Store
+.deno
+yt-dlp_linux
+node_modules
+.env
