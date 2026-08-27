@@ -578,11 +578,17 @@ module.exports = {
         await sock.sendPresenceUpdate("composing", m.key.remoteJid);
 
         const res = await client.chat.completions.create({
-          model: "Agent",
+          model: "kr/claude-sonnet-4.5",
           messages,
           tools: TOOLS,
           tool_choice: "auto",
         });
+
+        if (!res.choices || res.choices.length === 0) {
+          console.error("API returned empty response:", JSON.stringify(res));
+          await m.reply("⌁ API error: empty response from model.");
+          return;
+        }
 
         const choice = res.choices[0];
         messages.push(choice.message);
